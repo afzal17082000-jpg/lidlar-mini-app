@@ -20,4 +20,9 @@ async function getLeadsCollection() {
   return db.collection('leads');
 }
 
-module.exports = { getLeadsCollection };
+async function getEmployeesCollection() {
+  const db = await connect();
+  return db.collection('employees');
+}
+
+module.exports = { getLeadsCollection, getEmployeesCollection };
