@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Lidlar</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#10192B;
+    --surface:#182642;
+    --surface-2:#1F3252;
+    --border:#2A3B5C;
+    --text:#EDEFF5;
+    --text-muted:#8C9AB8;
+    --accent:#FF9F45;
+    --accent-text:#1A1206;
+    --danger:#F0648C;
+
+    --s-yangi:#5B8DEF;
+    --s-boglanildi:#9B7BEF;
+    --s-muzokara:#F2B84B;
+    --s-followup:#4FC3D9;
+    --s-buyurtma:#52C97A;
+    --s-yetkazildi:#34D399;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    padding-bottom:96px;
+  }
+  h1,h2,h3{font-family:'Manrope',sans-serif; margin:0;}
+
+  /* ---------- Registration screen ---------- */
+  .reg-screen{
+    position:fixed; inset:0;
+    background:var(--bg);
+    z-index:100;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding:24px;
+  }
+  .reg-screen.hidden{display:none;}
+  .reg-title{font-size:24px; font-weight:800; margin-bottom:6px;}
+  .reg-sub{font-size:14px; color:var(--text-muted); margin-bottom:28px; line-height:1.5;}
+  .reg-field{margin-bottom:16px;}
+  .reg-field label{
+    display:block;
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--text-muted);
+    margin-bottom:6px;
+  }
+  .reg-field input{
+    width:100%;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    font-size:15px;
+    padding:12px 13px;
+    outline:none;
+  }
+  .role-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+  }
+  .role-btn{
+    background:var(--surface);
+    border:1px solid var(--border);
+    color:var(--text);
+    border-radius:12px;
+    padding:14px 10px;
+    font-size:14px;
+    font-weight:600;
+    font-family:'Inter',sans-serif;
+    cursor:pointer;
+    text-align:center;
+  }
+  .role-btn.selected{
+    background:var(--accent);
+    color:var(--accent-text);
+    border-color:transparent;
+  }
+  .reg-submit{
+    width:100%;
+    background:var(--accent);
+    color:var(--accent-text);
+    border:none;
+    border-radius:12px;
+    padding:14px;
+    font-size:15px;
+    font-weight:700;
+    font-family:'Inter',sans-serif;
+    cursor:pointer;
+    margin-top:8px;
+  }
+  .reg-submit:disabled{opacity:.5;}
+  .reg-error{
+    color:var(--danger);
+    font-size:13px;
+    margin-top:10px;
+    min-height:16px;
+  }
+
+  /* ---------- Main app ---------- */
+  #app.hidden{display:none;}
+
+  .header{
+    padding:20px 16px 12px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .header h1{font-size:22px; font-weight:800; letter-spacing:-0.01em;}
+  .header .count{
+    font-size:13px;
+    color:var(--text-muted);
+    font-weight:500;
+  }
+
+  .searchbar{
+    margin:0 16px 12px;
+    display:flex;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:10px 14px;
+    gap:8px;
+    align-items:center;
+  }
+  .searchbar input{
+    background:transparent;
+    border:none;
+    outline:none;
+    color:var(--text);
+    font-size:15px;
+    width:100%;
+    font-family:'Inter',sans-serif;
+  }
+  .searchbar input::placeholder{color:var(--text-muted);}
+  .searchbar svg{flex-shrink:0; opacity:.6;}
+
+  .chips{
+    display:flex;
+    gap:8px;
+    overflow-x:auto;
+    padding:0 16px 14px;
+    scrollbar-width:none;
+  }
+  .chips::-webkit-scrollbar{display:none;}
+  .chip{
+    flex-shrink:0;
+    padding:8px 14px;
+    border-radius:999px;
+    border:1px solid var(--border);
+    background:var(--surface);
+    color:var(--text-muted);
+    font-size:13px;
+    font-weight:600;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    cursor:pointer;
+    white-space:nowrap;
+    transition:background .15s, color .15s, border-color .15s;
+  }
+  .chip .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+  .chip.active{
+    background:var(--surface-2);
+    color:var(--text);
+    border-color:var(--border);
+  }
+  .chip .n{
+    font-variant-numeric:tabular-nums;
+    opacity:.75;
+  }
+
+  .list{
+    padding:0 16px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+
+  .empty{
+    text-align:center;
+    padding:60px 24px;
+    color:var(--text-muted);
+  }
+  .empty h3{color:var(--text); font-size:17px; margin-bottom:6px;}
+  .empty p{font-size:14px; line-height:1.5; margin:0;}
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:14px 14px 14px 16px;
+    position:relative;
+    overflow:hidden;
+    cursor:pointer;
+  }
+  .card::before{
+    content:"";
+    position:absolute;
+    left:0; top:0; bottom:0;
+    width:4px;
+    background:var(--stripe, var(--s-yangi));
+  }
+  .card-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:10px;
+  }
+  .card-name{font-size:15.5px; font-weight:700;}
+  .card-phone{font-size:13.5px; color:var(--text-muted); margin-top:2px; font-variant-numeric:tabular-nums;}
+  .status-pill{
+    font-size:11.5px;
+    font-weight:700;
+    padding:4px 9px;
+    border-radius:999px;
+    white-space:nowrap;
+    flex-shrink:0;
+  }
+  .card-extra{
+    margin-top:8px;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    font-size:12.5px;
+    color:var(--text-muted);
+  }
+  .card-comment{
+    font-size:13px;
+    color:var(--text-muted);
+    margin-top:8px;
+    line-height:1.4;
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
+  }
+  .card-meta{
+    margin-top:10px;
+    display:flex;
+    justify-content:space-between;
+    gap:8px;
+    font-size:11.5px;
+    color:var(--text-muted);
+  }
+  .card-meta .who{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+
+  .detail{
+    margin-top:12px;
+    padding-top:12px;
+    border-top:1px solid var(--border);
+  }
+  .detail-label{font-size:11.5px; color:var(--text-muted); font-weight:600; margin-bottom:6px;}
+  .status-grid{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    margin-bottom:12px;
+  }
+  .status-btn{
+    font-size:12px;
+    font-weight:600;
+    padding:7px 10px;
+    border-radius:9px;
+    border:1px solid var(--border);
+    background:var(--surface-2);
+    color:var(--text-muted);
+    cursor:pointer;
+  }
+  .status-btn.selected{
+    color:var(--bg);
+    border-color:transparent;
+  }
+  .detail input, .detail textarea{
+    width:100%;
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    border-radius:10px;
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    font-size:13.5px;
+    padding:10px 12px;
+    resize:vertical;
+    outline:none;
+    margin-bottom:10px;
+  }
+  .detail textarea{min-height:56px;}
+  .detail-actions{
+    display:flex;
+    gap:8px;
+    margin-top:2px;
+  }
+  .btn-small{
+    flex:1;
+    padding:9px;
+    border-radius:9px;
+    border:none;
+    font-size:13px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .btn-save{background:var(--accent); color:var(--accent-text);}
+  .btn-delete{background:transparent; color:var(--danger); border:1px solid rgba(240,100,140,.4);}
+
+  .fab{
+    position:fixed;
+    right:16px;
+    bottom:20px;
+    background:var(--accent);
+    color:var(--accent-text);
+    border:none;
+    border-radius:16px;
+    padding:14px 20px;
+    font-size:15px;
+    font-weight:700;
+    font-family:'Inter',sans-serif;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    box-shadow:0 10px 30px rgba(255,159,69,.35);
+    cursor:pointer;
+    z-index:20;
+  }
+
+  .sheet-overlay{
+    position:fixed; inset:0;
+    background:rgba(6,10,20,.6);
+    display:none;
+    align-items:flex-end;
+    z-index:30;
+  }
+  .sheet-overlay.open{display:flex;}
+  .sheet{
+    background:var(--bg);
+    width:100%;
+    border-radius:20px 20px 0 0;
+    padding:20px 18px calc(20px + env(safe-area-inset-bottom));
+    max-height:88vh;
+    overflow-y:auto;
+    border-top:1px solid var(--border);
+    animation:up .2s ease;
+  }
+  @keyframes up{from{transform:translateY(24px); opacity:0;} to{transform:translateY(0); opacity:1;}}
+  .sheet-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:16px;
+  }
+  .sheet-head h2{font-size:18px; font-weight:800;}
+  .sheet-close{
+    background:var(--surface);
+    border:1px solid var(--border);
+    color:var(--text-muted);
+    width:30px; height:30px;
+    border-radius:9px;
+    font-size:16px;
+    cursor:pointer;
+  }
+  .field{margin-bottom:14px;}
+  .field label{
+    display:block;
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--text-muted);
+    margin-bottom:6px;
+  }
+  .field input, .field textarea, .field select{
+    width:100%;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    font-size:15px;
+    padding:12px 13px;
+    outline:none;
+  }
+  .field select{appearance:none;}
+  .field textarea{min-height:64px; resize:vertical;}
+  .field input[type="date"]{color-scheme:dark;}
+  .submit-btn{
+    width:100%;
+    background:var(--accent);
+    color:var(--accent-text);
+    border:none;
+    border-radius:12px;
+    padding:14px;
+    font-size:15px;
+    font-weight:700;
+    font-family:'Inter',sans-serif;
+    cursor:pointer;
+    margin-top:6px;
+  }
+  .submit-btn:disabled{opacity:.6;}
+  .toast{
+    position:fixed;
+    top:16px; left:50%;
+    transform:translateX(-50%);
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:10px 18px;
+    border-radius:10px;
+    font-size:13.5px;
+    font-weight:600;
+    z-index:50;
+    opacity:0;
+    transition:opacity .2s, transform .2s;
+    pointer-events:none;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(6px);}
+  .toast.error{background:#3a1c26; border-color:rgba(240,100,140,.4); color:#ffc7d6;}
+</style>
+</head>
+<body>
+
+<!-- Registration screen -->
+<div class="reg-screen hidden" id="regScreen">
+  <div class="reg-title">Xush kelibsiz</div>
+  <div class="reg-sub">Tizimdan foydalanish uchun avval ro'yxatdan o'ting. Ism va lavozimingizni tanlang.</div>
+
+  <div class="reg-field">
+    <label>Ismingiz</label>
+    <input type="text" id="regName" placeholder="Ism Familiya">
+  </div>
+
+  <div class="reg-field">
+    <label>Lavozimingiz</label>
+    <div class="role-grid" id="roleGrid">
+      <button type="button" class="role-btn" data-role="sotuvchi">Sotuvchi</button>
+      <button type="button" class="role-btn" data-role="marketolog">Marketolog</button>
+      <button type="button" class="role-btn" data-role="taminotchi">Ta'minotchi</button>
+      <button type="button" class="role-btn" data-role="rop">ROP</button>
+    </div>
+  </div>
+
+  <button class="reg-submit" id="regSubmit">Ro'yxatdan o'tish</button>
+  <div class="reg-error" id="regError"></div>
+</div>
+
+<div id="app" class="hidden">
+
+<div class="header">
+  <h1>Lidlar</h1>
+  <div class="count" id="totalCount">0 ta</div>
+</div>
+
+<div class="searchbar">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#8C9AB8" stroke-width="2"/><path d="M21 21l-4-4" stroke="#8C9AB8" stroke-width="2" stroke-linecap="round"/></svg>
+  <input id="searchInput" type="text" placeholder="Ism yoki telefon bo'yicha qidirish">
+</div>
+
+<div class="chips" id="chips"></div>
+
+<div class="list" id="list"></div>
+
+<button class="fab" id="fabAdd">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#1A1206" stroke-width="2.5" stroke-linecap="round"/></svg>
+  Yangi lid
+</button>
+
+<div class="sheet-overlay" id="sheetOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Yangi lid qo'shish</h2>
+      <button class="sheet-close" id="sheetClose">✕</button>
+    </div>
+    <form id="leadForm">
+      <div class="field">
+        <label>Mijoz ismi *</label>
+        <input type="text" id="fName" placeholder="Mijoz ismi" required>
+      </div>
+      <div class="field">
+        <label>Sana *</label>
+        <input type="date" id="fDate" required>
+      </div>
+      <div class="field">
+        <label>Telefon raqami *</label>
+        <input type="tel" id="fPhone" placeholder="+998 90 123 45 67" required>
+      </div>
+      <div class="field">
+        <label>Manba</label>
+        <select id="fSource">
+          <option value="Instagram">Instagram</option>
+          <option value="Telegram">Telegram</option>
+          <option value="Qo'ng'iroq">Qo'ng'iroq</option>
+          <option value="YouTube">YouTube</option>
+          <option value="Tavsiya qildi">Tavsiya qildi</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Manzil</label>
+        <input type="text" id="fAddress" placeholder="Shahar, tuman...">
+      </div>
+      <div class="field">
+        <label>Qanday mahsulot qiziqtirdi</label>
+        <input type="text" id="fProduct" placeholder="Masalan: elektr choynak XYZ">
+      </div>
+      <div class="field">
+        <label>Natija</label>
+        <textarea id="fComment" placeholder="Suhbat natijasi..."></textarea>
+      </div>
+      <button type="submit" class="submit-btn" id="submitBtn">Saqlash</button>
+    </form>
+  </div>
+</div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+
+// ---------- Statuses ----------
+const STATUSES = [
+  { id: 'yangi',       label: "Yangi",            color: 'var(--s-yangi)' },
+  { id: 'boglanildi',  label: "Bog'lanildi",       color: 'var(--s-boglanildi)' },
+  { id: 'muzokara',    label: "Muzokarada",        color: 'var(--s-muzokara)' },
+  { id: 'followup',    label: "Follow up",         color: 'var(--s-followup)' },
+  { id: 'buyurtma',    label: "Buyurtma berdi",    color: 'var(--s-buyurtma)' },
+  { id: 'yetkazildi',  label: "Yetkazildi",        color: 'var(--s-yetkazildi)' },
+];
+const statusById = Object.fromEntries(STATUSES.map(s => [s.id, s]));
+
+// ---------- Backend API ----------
+function authHeaders(json){
+  const h = {};
+  if (tg && tg.initData) h['X-Telegram-Init-Data'] = tg.initData;
+  if (json) h['Content-Type'] = 'application/json';
+  return h;
+}
+const API = {
+  async me(){
+    const res = await fetch('/api/employees/me', { headers: authHeaders() });
+    return res.json();
+  },
+  async register(payload){
+    const res = await fetch('/api/employees', { method:'POST', headers: authHeaders(true), body: JSON.stringify(payload) });
+    return res.json();
+  },
+  async list(){
+    const res = await fetch('/api/leads', { headers: authHeaders() });
+    if (!res.ok) throw new Error('list failed');
+    return res.json();
+  },
+  async create(payload){
+    const res = await fetch('/api/leads', { method:'POST', headers: authHeaders(true), body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'create failed');
+    return data;
+  },
+  async update(id, payload){
+    const res = await fetch('/api/leads/' + id, { method:'PATCH', headers: authHeaders(true), body: JSON.stringify(payload) });
+    if (!res.ok) throw new Error('update failed');
+    return res.json();
+  },
+  async remove(id){
+    const res = await fetch('/api/leads/' + id, { method:'DELETE', headers: authHeaders() });
+    if (!res.ok) throw new Error('delete failed');
+    return res.json();
+  }
+};
+
+let leads = [];
+let activeFilter = 'all';
+let expandedId = null;
+let searchTerm = '';
+
+// ================= Registration flow =================
+let selectedRole = null;
+
+function initRegistration(){
+  const grid = document.getElementById('roleGrid');
+  grid.querySelectorAll('.role-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selectedRole = btn.dataset.role;
+      grid.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+    });
+  });
+
+  const nameInput = document.getElementById('regName');
+  if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
+    const u = tg.initDataUnsafe.user;
+    nameInput.value = [u.first_name, u.last_name].filter(Boolean).join(' ');
+  }
+
+  document.getElementById('regSubmit').addEventListener('click', async () => {
+    const name = nameInput.value.trim();
+    const errEl = document.getElementById('regError');
+    errEl.textContent = '';
+    if (!name) { errEl.textContent = "Ismingizni kiriting"; return; }
+    if (!selectedRole) { errEl.textContent = "Lavozimingizni tanlang"; return; }
+
+    const btn = document.getElementById('regSubmit');
+    btn.disabled = true;
+    btn.textContent = 'Yuborilmoqda...';
+    try {
+      const result = await API.register({ name, role: selectedRole });
+      if (result.error) {
+        errEl.textContent = result.error;
+        btn.disabled = false;
+        btn.textContent = "Ro'yxatdan o'tish";
+        return;
+      }
+      document.getElementById('regScreen').classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+      startApp();
+    } catch (e) {
+      errEl.textContent = "Xatolik yuz berdi, qaytadan urinib ko'ring";
+      btn.disabled = false;
+      btn.textContent = "Ro'yxatdan o'tish";
+    }
+  });
+}
+
+async function checkRegistration(){
+  try {
+    const result = await API.me();
+    if (result.registered) {
+      document.getElementById('app').classList.remove('hidden');
+      startApp();
+    } else {
+      initRegistration();
+      document.getElementById('regScreen').classList.remove('hidden');
+    }
+  } catch (e) {
+    document.getElementById('app').classList.remove('hidden');
+    startApp();
+  }
+}
+
+// ================= Main app =================
+let appStarted = false;
+async function startApp(){
+  if (appStarted) return;
+  appStarted = true;
+  await loadLeads();
+  render();
+}
+
+async function loadLeads(){
+  try {
+    leads = await API.list();
+  } catch (e) {
+    showToast("Ulanishda xatolik. Internetni tekshiring.", true);
+  }
+}
+
+function fmtDate(ts){
+  const d = new Date(ts);
+  return d.toLocaleDateString('uz-UZ', { day:'2-digit', month:'2-digit' }) + ' ' +
+         d.toLocaleTimeString('uz-UZ', { hour:'2-digit', minute:'2-digit' });
+}
+
+function countFor(id){
+  if (id === 'all') return leads.length;
+  return leads.filter(l => l.status === id).length;
+}
+
+function renderChips(){
+  const chips = document.getElementById('chips');
+  const all = [{ id:'all', label:'Hammasi', color:null }, ...STATUSES];
+  chips.innerHTML = all.map(s => `
+    <div class="chip ${activeFilter===s.id?'active':''}" data-filter="${s.id}">
+      ${s.color ? `<span class="dot" style="background:${s.color}"></span>` : ''}
+      ${s.label} <span class="n">${countFor(s.id)}</span>
+    </div>
+  `).join('');
+  chips.querySelectorAll('.chip').forEach(el => {
+    el.addEventListener('click', () => {
+      activeFilter = el.dataset.filter;
+      expandedId = null;
+      render();
+    });
+  });
+}
+
+function filteredLeads(){
+  let arr = leads;
+  if (activeFilter !== 'all') arr = arr.filter(l => l.status === activeFilter);
+  if (searchTerm.trim()) {
+    const q = searchTerm.trim().toLowerCase();
+    arr = arr.filter(l => l.name.toLowerCase().includes(q) || l.phone.includes(q));
+  }
+  return arr;
+}
+
+function renderList(){
+  const list = document.getElementById('list');
+  const arr = filteredLeads();
+
+  if (!arr.length) {
+    list.innerHTML = `
+      <div class="empty">
+        <h3>Bu yerda hali hech narsa yo'q</h3>
+        <p>${leads.length===0 ? "Birinchi lidni qo'shish uchun pastdagi tugmani bosing." : "Ushbu filtr bo'yicha lid topilmadi."}</p>
+      </div>`;
+    return;
+  }
+
+  list.innerHTML = arr.map(lead => {
+    const st = statusById[lead.status] || STATUSES[0];
+    const isOpen = expandedId === lead.id;
+    const whoLine = lead.addedBy === lead.updatedBy
+      ? `Qo'shdi: ${escapeHtml(lead.addedBy)}`
+      : `Qo'shdi: ${escapeHtml(lead.addedBy)} · Yangiladi: ${escapeHtml(lead.updatedBy)}`;
+    return `
+    <div class="card" style="--stripe:${st.color}" data-id="${lead.id}">
+      <div class="card-top">
+        <div>
+          <div class="card-name">${escapeHtml(lead.name)}</div>
+          <div class="card-phone">${escapeHtml(lead.phone)}</div>
+        </div>
+        <div class="status-pill" style="background:${st.color}22; color:${st.color}">${st.label}</div>
+      </div>
+      <div class="card-extra">
+        ${lead.leadDate ? `<span>📅 ${escapeHtml(lead.leadDate)}</span>` : ''}
+        ${lead.product ? `<span>🫖 ${escapeHtml(lead.product)}</span>` : ''}
+        ${lead.address ? `<span>📍 ${escapeHtml(lead.address)}</span>` : ''}
+        ${lead.source ? `<span>🔗 ${escapeHtml(lead.source)}</span>` : ''}
+      </div>
+      ${lead.comment ? `<div class="card-comment">${escapeHtml(lead.comment)}</div>` : ''}
+      <div class="card-meta">
+        <span class="who">${whoLine}</span>
+        <span>${fmtDate(lead.createdAt)}</span>
+      </div>
+      ${isOpen ? renderDetail(lead) : ''}
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.card').forEach(card => {
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.detail')) return;
+      const id = card.dataset.id;
+      expandedId = expandedId === id ? null : id;
+      render();
+    });
+  });
+
+  attachDetailHandlers();
+}
+
+function renderDetail(lead){
+  return `
+  <div class="detail" onclick="event.stopPropagation()">
+    <div class="detail-label">Holatni o'zgartirish</div>
+    <div class="status-grid">
+      ${STATUSES.map(s => `
+        <button type="button" class="status-btn ${lead.status===s.id?'selected':''}"
+          style="${lead.status===s.id ? `background:${s.color}` : ''}"
+          data-action="status" data-status="${s.id}">${s.label}</button>
+      `).join('')}
+    </div>
+    <div class="detail-label">Manzil</div>
+    <input type="text" data-role="address-edit" value="${escapeHtml(lead.address || '')}" placeholder="Manzil">
+    <div class="detail-label">Mahsulot</div>
+    <input type="text" data-role="product-edit" value="${escapeHtml(lead.product || '')}" placeholder="Qanday mahsulot qiziqtirdi">
+    <div class="detail-label">Natija</div>
+    <textarea data-role="comment-edit">${escapeHtml(lead.comment || '')}</textarea>
+    <div class="detail-actions">
+      <button type="button" class="btn-small btn-save" data-action="save">Saqlash</button>
+      <button type="button" class="btn-small btn-delete" data-action="delete">O'chirish</button>
+    </div>
+  </div>`;
+}
+
+function attachDetailHandlers(){
+  document.querySelectorAll('[data-action="status"]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const card = btn.closest('.card');
+      const id = card.dataset.id;
+      const lead = leads.find(l => l.id === id);
+      const prevStatus = lead.status;
+      lead.status = btn.dataset.status;
+      render();
+      try {
+        const updated = await API.update(id, { status: lead.status });
+        Object.assign(lead, updated);
+        render();
+        showToast("Holat yangilandi: " + statusById[lead.status].label);
+      } catch (e) {
+        lead.status = prevStatus;
+        render();
+        showToast("Saqlab bo'lmadi, qaytadan urinib ko'ring", true);
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-action="save"]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const card = btn.closest('.card');
+      const id = card.dataset.id;
+      const lead = leads.find(l => l.id === id);
+      const comment = card.querySelector('[data-role="comment-edit"]').value.trim();
+      const address = card.querySelector('[data-role="address-edit"]').value.trim();
+      const product = card.querySelector('[data-role="product-edit"]').value.trim();
+      try {
+        const updated = await API.update(id, { comment, address, product });
+        Object.assign(lead, updated);
+        showToast("Saqlandi");
+        render();
+      } catch (e) {
+        showToast("Saqlab bo'lmadi, qaytadan urinib ko'ring", true);
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-action="delete"]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const card = btn.closest('.card');
+      const id = card.dataset.id;
+      const doDelete = async () => {
+        try {
+          await API.remove(id);
+          leads = leads.filter(l => l.id !== id);
+          expandedId = null;
+          render();
+          showToast("Lid o'chirildi");
+        } catch (e) {
+          showToast("O'chirib bo'lmadi, qaytadan urinib ko'ring", true);
+        }
+      };
+      if (tg && tg.showConfirm) {
+        tg.showConfirm("Bu lidni o'chirmoqchimisiz?", (ok) => { if (ok) doDelete(); });
+      } else if (confirm("Bu lidni o'chirmoqchimisiz?")) {
+        doDelete();
+      }
+    });
+  });
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str == null ? '' : str;
+  return div.innerHTML;
+}
+
+function render(){
+  document.getElementById('totalCount').textContent = leads.length + " ta";
+  renderChips();
+  renderList();
+}
+
+function showToast(msg, isError){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.toggle('error', !!isError);
+  t.classList.add('show');
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ---------- Add lead sheet ----------
+const overlay = document.getElementById('sheetOverlay');
+document.getElementById('fabAdd').addEventListener('click', () => {
+  overlay.classList.add('open');
+  document.getElementById('fDate').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('fName').focus();
+});
+document.getElementById('sheetClose').addEventListener('click', () => overlay.classList.remove('open'));
+overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('open'); });
+
+document.getElementById('leadForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = document.getElementById('fName').value.trim();
+  const leadDate = document.getElementById('fDate').value;
+  const phone = document.getElementById('fPhone').value.trim();
+  const source = document.getElementById('fSource').value;
+  const address = document.getElementById('fAddress').value.trim();
+  const product = document.getElementById('fProduct').value.trim();
+  const comment = document.getElementById('fComment').value.trim();
+  if (!name || !phone) return;
+
+  const submitBtn = document.getElementById('submitBtn');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Saqlanmoqda...';
+  try {
+    const lead = await API.create({ name, phone, source, address, product, comment, leadDate });
+    leads.unshift(lead);
+    e.target.reset();
+    overlay.classList.remove('open');
+    activeFilter = 'all';
+    render();
+    showToast("Lid qo'shildi");
+    if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+  } catch (err) {
+    showToast(err.message || "Saqlab bo'lmadi, qaytadan urinib ko'ring", true);
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Saqlash';
+  }
+});
+
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  searchTerm = e.target.value;
+  renderList();
+});
+
+// ---------- Init ----------
+checkRegistration();
+</script>
+</body>
+</html>
