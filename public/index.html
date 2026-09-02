@@ -81,7 +81,7 @@
     color:var(--text);
     border-radius:12px;
     padding:14px 10px;
-    font-size:14px;
+    font-size:13.5px;
     font-weight:600;
     font-family:'Inter',sans-serif;
     cursor:pointer;
@@ -112,6 +112,68 @@
     margin-top:10px;
     min-height:16px;
   }
+
+  /* ---------- Tabs ---------- */
+  .tabbar{
+    display:flex;
+    gap:8px;
+    padding:0 16px 14px;
+  }
+  .tab-btn{
+    flex:1;
+    padding:10px;
+    border-radius:12px;
+    border:1px solid var(--border);
+    background:var(--surface);
+    color:var(--text-muted);
+    font-size:13.5px;
+    font-weight:700;
+    font-family:'Inter',sans-serif;
+    cursor:pointer;
+    text-align:center;
+  }
+  .tab-btn.active{
+    background:var(--accent);
+    color:var(--accent-text);
+    border-color:transparent;
+  }
+  .tab-panel.hidden{display:none;}
+
+  /* ---------- Materials (warehouse) ---------- */
+  .mat-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:14px 16px;
+    margin-bottom:10px;
+  }
+  .mat-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .mat-name{font-size:15px; font-weight:700;}
+  .mat-qty{font-size:14px; font-weight:700;}
+  .mat-qty.low{color:var(--danger);}
+  .mat-sub{font-size:12px; color:var(--text-muted); margin-top:2px;}
+  .mat-actions{
+    display:flex;
+    gap:8px;
+    margin-top:12px;
+  }
+  .mat-btn{
+    flex:1;
+    padding:9px;
+    border-radius:9px;
+    border:1px solid var(--border);
+    background:var(--surface-2);
+    color:var(--text);
+    font-size:13px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .mat-btn.in{color:var(--s-buyurtma);}
+  .mat-btn.out{color:var(--danger);}
 
   /* ---------- Main app ---------- */
   #app.hidden{display:none;}
@@ -444,10 +506,10 @@
   <div class="reg-field">
     <label>Lavozimingiz</label>
     <div class="role-grid" id="roleGrid">
-      <button type="button" class="role-btn" data-role="sotuvchi">Sotuvchi</button>
-      <button type="button" class="role-btn" data-role="marketolog">Marketolog</button>
-      <button type="button" class="role-btn" data-role="taminotchi">Ta'minotchi</button>
-      <button type="button" class="role-btn" data-role="rop">ROP</button>
+      <button type="button" class="role-btn" data-role="admin">Rahbar</button>
+      <button type="button" class="role-btn" data-role="sales">Sotuvchi</button>
+      <button type="button" class="role-btn" data-role="warehouse_production">Omborchi/Usta</button>
+      <button type="button" class="role-btn" data-role="finance">Moliyachi</button>
     </div>
   </div>
 
@@ -462,6 +524,15 @@
   <div class="count" id="totalCount">0 ta</div>
 </div>
 
+<div class="tabbar hidden" id="tabbar">
+  <button type="button" class="tab-btn active" data-tab="leads">Sotuv</button>
+  <button type="button" class="tab-btn hidden" data-tab="warehouse" id="tabWarehouse">Ombor</button>
+  <button type="button" class="tab-btn hidden" data-tab="production" id="tabProduction">Ishlab ch.</button>
+  <button type="button" class="tab-btn hidden" data-tab="finance" id="tabFinance">Moliya</button>
+</div>
+
+<div class="tab-panel" id="leadsPanel">
+
 <div class="searchbar">
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#8C9AB8" stroke-width="2"/><path d="M21 21l-4-4" stroke="#8C9AB8" stroke-width="2" stroke-linecap="round"/></svg>
   <input id="searchInput" type="text" placeholder="Ism yoki telefon bo'yicha qidirish">
@@ -475,6 +546,36 @@
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#1A1206" stroke-width="2.5" stroke-linecap="round"/></svg>
   Yangi lid
 </button>
+
+</div>
+
+<div class="tab-panel hidden" id="warehousePanel">
+  <div class="searchbar" style="justify-content:flex-end;">
+    <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 16px;" id="fabAddMaterial">+ Xomashyo qo'shish</button>
+  </div>
+  <div class="list" id="materialsList" style="padding:0 16px;"></div>
+</div>
+
+<div class="tab-panel hidden" id="productionPanel">
+  <div class="searchbar" style="justify-content:space-between; gap:8px;">
+    <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 14px; font-size:13px;" id="fabAddProduct">+ Mahsulot</button>
+    <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 14px; font-size:13px; background:var(--surface-2); color:var(--text);" id="downloadWarehouseExcel">📊 Ombor Excel</button>
+  </div>
+  <div class="detail-label" style="padding:0 16px; margin-top:10px;">Mahsulotlar va yig'ish</div>
+  <div class="list" id="productsList" style="padding:0 16px;"></div>
+  <div class="detail-label" style="padding:0 16px; margin-top:16px;">Tayyor mahsulotlar (seriyalar)</div>
+  <div class="list" id="serialsList" style="padding:0 16px;"></div>
+</div>
+
+<div class="tab-panel hidden" id="financePanel">
+  <div class="searchbar" style="justify-content:space-between; gap:8px;">
+    <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 14px; font-size:13px;" id="fabAddFinance">+ Yozuv qo'shish</button>
+    <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 14px; font-size:13px; background:var(--surface-2); color:var(--text);" id="downloadFinanceExcel">📊 Excel</button>
+  </div>
+  <div class="mat-card" id="pnlCard" style="margin:0 16px 14px;"></div>
+  <div class="detail-label" style="padding:0 16px;">Yozuvlar tarixi</div>
+  <div class="list" id="financeList" style="padding:0 16px;"></div>
+</div>
 
 <div class="sheet-overlay" id="sheetOverlay">
   <div class="sheet">
@@ -522,6 +623,145 @@
   </div>
 </div>
 
+<div class="sheet-overlay" id="materialSheetOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Yangi xomashyo</h2>
+      <button class="sheet-close" id="materialSheetClose">✕</button>
+    </div>
+    <form id="materialForm">
+      <div class="field">
+        <label>Nomi *</label>
+        <input type="text" id="mName" placeholder="Masalan: Nasos" required>
+      </div>
+      <div class="field">
+        <label>O'lchov birligi *</label>
+        <input type="text" id="mUnit" placeholder="dona / metr / kg" required>
+      </div>
+      <div class="field">
+        <label>Boshlang'ich qoldiq</label>
+        <input type="number" id="mQty" placeholder="0" min="0" step="any">
+      </div>
+      <div class="field">
+        <label>Minimal me'yor (ogohlantirish uchun)</label>
+        <input type="number" id="mMinStock" placeholder="0" min="0" step="any">
+      </div>
+      <div class="field">
+        <label>Xarid narxi (birlik uchun)</label>
+        <input type="number" id="mPrice" placeholder="0" min="0" step="any">
+      </div>
+      <button type="submit" class="submit-btn" id="materialSubmitBtn">Saqlash</button>
+    </form>
+  </div>
+</div>
+
+<div class="sheet-overlay" id="adjustSheetOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2 id="adjustTitle">Kirim / Chiqim</h2>
+      <button class="sheet-close" id="adjustSheetClose">✕</button>
+    </div>
+    <form id="adjustForm">
+      <div class="field">
+        <label>Miqdor *</label>
+        <input type="number" id="aQty" placeholder="0" min="0" step="any" required>
+      </div>
+      <div class="field">
+        <label>Izoh</label>
+        <input type="text" id="aNote" placeholder="Ixtiyoriy">
+      </div>
+      <button type="submit" class="submit-btn" id="adjustSubmitBtn">Tasdiqlash</button>
+    </form>
+  </div>
+</div>
+
+<div class="sheet-overlay" id="productSheetOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Yangi mahsulot</h2>
+      <button class="sheet-close" id="productSheetClose">✕</button>
+    </div>
+    <form id="productForm">
+      <div class="field">
+        <label>Nomi *</label>
+        <input type="text" id="pName" placeholder="Masalan: Kotel 24kW" required>
+      </div>
+      <div class="field">
+        <label>Quvvati (kW)</label>
+        <input type="number" id="pPower" placeholder="24" min="0" step="any">
+      </div>
+      <div class="field">
+        <label>Sotish narxi</label>
+        <input type="number" id="pPrice" placeholder="0" min="0" step="any">
+      </div>
+      <div class="field">
+        <label>Tavsif</label>
+        <textarea id="pDesc" placeholder="Ixtiyoriy"></textarea>
+      </div>
+      <button type="submit" class="submit-btn" id="productSubmitBtn">Saqlash</button>
+    </form>
+  </div>
+</div>
+
+<div class="sheet-overlay" id="bomSheetOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2 id="bomTitle">Retseptura</h2>
+      <button class="sheet-close" id="bomSheetClose">✕</button>
+    </div>
+    <div class="detail-label">Xomashyolar va miqdori</div>
+    <div id="bomItemsList"></div>
+    <button type="button" class="mat-btn" id="bomAddRow" style="width:100%; margin:10px 0;">+ Qator qo'shish</button>
+    <button type="button" class="submit-btn" id="bomSaveBtn">Saqlash</button>
+  </div>
+</div>
+
+<div class="sheet-overlay" id="financeSheetOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Yangi moliyaviy yozuv</h2>
+      <button class="sheet-close" id="financeSheetClose">✕</button>
+    </div>
+    <form id="financeForm">
+      <div class="field">
+        <label>Turi *</label>
+        <select id="fType">
+          <option value="expense">Xarajat</option>
+          <option value="income">Tushum</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Kategoriya</label>
+        <input type="text" id="fCategory" placeholder="Masalan: Ish haqi, Ijara...">
+      </div>
+      <div class="field">
+        <label>Summa *</label>
+        <input type="number" id="fAmount" placeholder="0" min="0" step="any" required>
+      </div>
+      <div class="field">
+        <label>Sana</label>
+        <input type="date" id="fDate2">
+      </div>
+      <div class="field">
+        <label>Izoh</label>
+        <input type="text" id="fNote" placeholder="Ixtiyoriy">
+      </div>
+      <button type="submit" class="submit-btn" id="financeSubmitBtn">Saqlash</button>
+    </form>
+  </div>
+</div>
+
+<div class="sheet-overlay" id="assignSerialOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Seriya biriktirish</h2>
+      <button class="sheet-close" id="assignSerialClose">✕</button>
+    </div>
+    <div class="detail-label">Omborda mavjud kotellar</div>
+    <div id="assignSerialList"></div>
+  </div>
+</div>
+
 </div>
 
 <div class="toast" id="toast"></div>
@@ -530,14 +770,15 @@
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
 
-// ---------- Statuses ----------
+// ---------- Statuses (sales funnel) ----------
 const STATUSES = [
-  { id: 'yangi',       label: "Yangi",            color: 'var(--s-yangi)' },
-  { id: 'boglanildi',  label: "Bog'lanildi",       color: 'var(--s-boglanildi)' },
-  { id: 'muzokara',    label: "Muzokarada",        color: 'var(--s-muzokara)' },
-  { id: 'followup',    label: "Follow up",         color: 'var(--s-followup)' },
-  { id: 'buyurtma',    label: "Buyurtma berdi",    color: 'var(--s-buyurtma)' },
-  { id: 'yetkazildi',  label: "Yetkazildi",        color: 'var(--s-yetkazildi)' },
+  { id: 'lead',          label: "Yangi lid",         color: 'var(--s-yangi)' },
+  { id: 'consultation',  label: "Konsultatsiya",     color: 'var(--s-boglanildi)' },
+  { id: 'contract',      label: "Shartnoma",         color: 'var(--s-muzokara)' },
+  { id: 'production',    label: "Ishlab chiqarish",  color: 'var(--s-followup)' },
+  { id: 'installation',  label: "O'rnatish",         color: '#8B7FD9' },
+  { id: 'won',           label: "Yopildi",           color: 'var(--s-buyurtma)' },
+  { id: 'lost',          label: "Otkaz",             color: 'var(--danger)' },
 ];
 const statusById = Object.fromEntries(STATUSES.map(s => [s.id, s]));
 
@@ -577,8 +818,98 @@ const API = {
     const res = await fetch('/api/leads/' + id, { method:'DELETE', headers: authHeaders() });
     if (!res.ok) throw new Error('delete failed');
     return res.json();
+  },
+  async materials(){
+    const res = await fetch('/api/materials', { headers: authHeaders() });
+    if (!res.ok) throw new Error('materials failed');
+    return res.json();
+  },
+  async createMaterial(payload){
+    const res = await fetch('/api/materials', { method:'POST', headers: authHeaders(true), body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'create failed');
+    return data;
+  },
+  async adjustMaterial(id, payload){
+    const res = await fetch('/api/materials/' + id + '/adjust', { method:'POST', headers: authHeaders(true), body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'adjust failed');
+    return data;
+  },
+  async removeMaterial(id){
+    const res = await fetch('/api/materials/' + id, { method:'DELETE', headers: authHeaders() });
+    if (!res.ok) throw new Error('delete failed');
+    return res.json();
+  },
+  async products(){
+    const res = await fetch('/api/products', { headers: authHeaders() });
+    if (!res.ok) throw new Error('products failed');
+    return res.json();
+  },
+  async createProduct(payload){
+    const res = await fetch('/api/products', { method:'POST', headers: authHeaders(true), body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'create failed');
+    return data;
+  },
+  async removeProduct(id){
+    const res = await fetch('/api/products/' + id, { method:'DELETE', headers: authHeaders() });
+    if (!res.ok) throw new Error('delete failed');
+    return res.json();
+  },
+  async getBom(productId){
+    const res = await fetch('/api/boms/' + productId, { headers: authHeaders() });
+    if (!res.ok) throw new Error('bom failed');
+    return res.json();
+  },
+  async saveBom(productId, items){
+    const res = await fetch('/api/boms/' + productId, { method:'POST', headers: authHeaders(true), body: JSON.stringify({ items }) });
+    if (!res.ok) throw new Error('save bom failed');
+    return res.json();
+  },
+  async assemble(productId){
+    const res = await fetch('/api/production/assemble', { method:'POST', headers: authHeaders(true), body: JSON.stringify({ productId }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'assemble failed');
+    return data;
+  },
+  async serials(status){
+    const url = status ? '/api/serials?status=' + status : '/api/serials';
+    const res = await fetch(url, { headers: authHeaders() });
+    if (!res.ok) throw new Error('serials failed');
+    return res.json();
+  },
+  async assignSerial(leadId, serialId){
+    const res = await fetch('/api/leads/' + leadId + '/assign-serial', { method:'POST', headers: authHeaders(true), body: JSON.stringify({ serialId }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'assign failed');
+    return data;
+  },
+  async financeEntries(){
+    const res = await fetch('/api/finance/entries', { headers: authHeaders() });
+    if (!res.ok) throw new Error('finance failed');
+    return res.json();
+  },
+  async createFinanceEntry(payload){
+    const res = await fetch('/api/finance/entries', { method:'POST', headers: authHeaders(true), body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'create failed');
+    return data;
+  },
+  async removeFinanceEntry(id){
+    const res = await fetch('/api/finance/entries/' + id, { method:'DELETE', headers: authHeaders() });
+    if (!res.ok) throw new Error('delete failed');
+    return res.json();
+  },
+  async pnl(){
+    const res = await fetch('/api/finance/pnl', { headers: authHeaders() });
+    if (!res.ok) throw new Error('pnl failed');
+    return res.json();
   }
 };
+
+let currentEmployee = null;
+let materials = [];
 
 let leads = [];
 let activeFilter = 'all';
@@ -624,6 +955,7 @@ function initRegistration(){
       }
       document.getElementById('regScreen').classList.add('hidden');
       document.getElementById('app').classList.remove('hidden');
+      currentEmployee = result.employee || null;
       startApp();
     } catch (e) {
       errEl.textContent = "Xatolik yuz berdi, qaytadan urinib ko'ring";
@@ -637,6 +969,7 @@ async function checkRegistration(){
   try {
     const result = await API.me();
     if (result.registered) {
+      currentEmployee = result.employee || null;
       document.getElementById('app').classList.remove('hidden');
       startApp();
     } else {
@@ -644,6 +977,7 @@ async function checkRegistration(){
       document.getElementById('regScreen').classList.remove('hidden');
     }
   } catch (e) {
+    // If the check fails, don't block the person from using the app.
     document.getElementById('app').classList.remove('hidden');
     startApp();
   }
@@ -654,9 +988,529 @@ let appStarted = false;
 async function startApp(){
   if (appStarted) return;
   appStarted = true;
+  initTabs();
   await loadLeads();
   render();
 }
+
+// ================= Tabs =================
+function initTabs(){
+  if (!currentEmployee) return;
+  const role = currentEmployee.role;
+  const showWarehouse = ['admin', 'warehouse_production'].includes(role);
+  const showProduction = ['admin', 'warehouse_production'].includes(role);
+  const showFinance = ['admin', 'finance'].includes(role);
+
+  if (!showWarehouse && !showProduction && !showFinance) return; // sales sees leads tab only, no bar needed
+
+  document.getElementById('tabbar').classList.remove('hidden');
+  document.getElementById('tabWarehouse').classList.toggle('hidden', !showWarehouse);
+  document.getElementById('tabProduction').classList.toggle('hidden', !showProduction);
+  document.getElementById('tabFinance').classList.toggle('hidden', !showFinance);
+
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.classList.contains('hidden')) return;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const tab = btn.dataset.tab;
+      document.getElementById('leadsPanel').classList.toggle('hidden', tab !== 'leads');
+      document.getElementById('warehousePanel').classList.toggle('hidden', tab !== 'warehouse');
+      document.getElementById('productionPanel').classList.toggle('hidden', tab !== 'production');
+      document.getElementById('financePanel').classList.toggle('hidden', tab !== 'finance');
+      document.getElementById('fabAdd').classList.toggle('hidden', tab !== 'leads');
+      if (tab === 'warehouse') loadMaterials();
+      if (tab === 'production') { loadProducts(); loadSerials(); }
+      if (tab === 'finance') { loadFinance(); loadPnl(); }
+    });
+  });
+}
+
+// ================= Products / BOM / Assembly (production) =================
+let products = [];
+let serials = [];
+let currentBomProductId = null;
+
+async function loadProducts(){
+  try {
+    products = await API.products();
+    renderProducts();
+  } catch (e) {
+    showToast("Mahsulotlarni yuklab bo'lmadi", true);
+  }
+}
+
+async function loadSerials(){
+  try {
+    serials = await API.serials();
+    renderSerials();
+  } catch (e) {
+    showToast("Seriyalarni yuklab bo'lmadi", true);
+  }
+}
+
+function renderProducts(){
+  const list = document.getElementById('productsList');
+  if (!products.length) {
+    list.innerHTML = `<div class="empty"><h3>Mahsulot yo'q</h3><p>Yuqoridagi tugma orqali qo'shing.</p></div>`;
+    return;
+  }
+  list.innerHTML = products.map(p => `
+    <div class="mat-card" data-id="${p.id}">
+      <div class="mat-top">
+        <div>
+          <div class="mat-name">${escapeHtml(p.name)}</div>
+          <div class="mat-sub">${p.powerKw ? p.powerKw + ' kW · ' : ''}Narx: ${p.salePrice}</div>
+        </div>
+      </div>
+      <div class="mat-actions">
+        <button type="button" class="mat-btn" data-action="bom">Retseptura</button>
+        <button type="button" class="mat-btn in" data-action="assemble">🔧 Yig'ish</button>
+        <button type="button" class="mat-btn out" data-action="delete">O'chirish</button>
+      </div>
+    </div>
+  `).join('');
+
+  list.querySelectorAll('.mat-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const card = btn.closest('.mat-card');
+      const id = card.dataset.id;
+      const action = btn.dataset.action;
+      if (action === 'bom') {
+        openBomSheet(id);
+      } else if (action === 'assemble') {
+        btn.disabled = true;
+        try {
+          const serial = await API.assemble(id);
+          serials.unshift(serial);
+          renderSerials();
+          showToast("Yig'ildi: " + serial.serialNumber);
+        } catch (err) {
+          showToast(err.message || "Yig'ib bo'lmadi", true);
+        } finally {
+          btn.disabled = false;
+        }
+      } else if (action === 'delete') {
+        const doDelete = async () => {
+          try {
+            await API.removeProduct(id);
+            products = products.filter(p => p.id !== id);
+            renderProducts();
+            showToast("O'chirildi");
+          } catch (e) {
+            showToast("O'chirib bo'lmadi", true);
+          }
+        };
+        if (tg && tg.showConfirm) tg.showConfirm("O'chirmoqchimisiz?", (ok) => { if (ok) doDelete(); });
+        else if (confirm("O'chirmoqchimisiz?")) doDelete();
+      }
+    });
+  });
+}
+
+function renderSerials(){
+  const list = document.getElementById('serialsList');
+  if (!serials.length) {
+    list.innerHTML = `<div class="empty"><p>Hali yig'ilgan mahsulot yo'q.</p></div>`;
+    return;
+  }
+  const statusLabels = { stock: "Omborda", reserved: "Bron", sold: "Sotilgan" };
+  list.innerHTML = serials.slice(0, 30).map(s => `
+    <div class="mat-card">
+      <div class="mat-top">
+        <div>
+          <div class="mat-name">${escapeHtml(s.serialNumber)}</div>
+          <div class="mat-sub">${escapeHtml(s.productName)} · Tannarx: ${s.cogs.toFixed(0)}</div>
+        </div>
+        <div class="mat-qty">${statusLabels[s.status] || s.status}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+document.getElementById('fabAddProduct').addEventListener('click', () => {
+  document.getElementById('productSheetOverlay').classList.add('open');
+});
+document.getElementById('productSheetClose').addEventListener('click', () => {
+  document.getElementById('productSheetOverlay').classList.remove('open');
+});
+document.getElementById('productForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = document.getElementById('pName').value.trim();
+  const powerKw = document.getElementById('pPower').value || 0;
+  const salePrice = document.getElementById('pPrice').value || 0;
+  const description = document.getElementById('pDesc').value.trim();
+  if (!name) return;
+  const btn = document.getElementById('productSubmitBtn');
+  btn.disabled = true;
+  try {
+    const product = await API.createProduct({ name, powerKw, salePrice, description });
+    products.push(product);
+    renderProducts();
+    e.target.reset();
+    document.getElementById('productSheetOverlay').classList.remove('open');
+    showToast("Mahsulot qo'shildi");
+  } catch (err) {
+    showToast(err.message || "Saqlab bo'lmadi", true);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+async function openBomSheet(productId){
+  currentBomProductId = productId;
+  const product = products.find(p => p.id === productId);
+  document.getElementById('bomTitle').textContent = 'Retseptura: ' + (product ? product.name : '');
+  try {
+    const [bom, mats] = await Promise.all([API.getBom(productId), materials.length ? Promise.resolve(materials) : API.materials()]);
+    materials = mats;
+    renderBomRows(bom.items || []);
+    document.getElementById('bomSheetOverlay').classList.add('open');
+  } catch (e) {
+    showToast("Retsepturani yuklab bo'lmadi", true);
+  }
+}
+document.getElementById('bomSheetClose').addEventListener('click', () => {
+  document.getElementById('bomSheetOverlay').classList.remove('open');
+});
+
+function renderBomRows(items){
+  const container = document.getElementById('bomItemsList');
+  container.innerHTML = '';
+  const rows = items.length ? items : [{ materialId: '', qty: '' }];
+  rows.forEach(item => addBomRow(item.materialId, item.qty));
+}
+
+function addBomRow(materialId, qty){
+  const container = document.getElementById('bomItemsList');
+  const row = document.createElement('div');
+  row.style.display = 'flex';
+  row.style.gap = '8px';
+  row.style.marginBottom = '8px';
+  const options = materials.map(m => `<option value="${m.id}" ${m.id===materialId?'selected':''}>${escapeHtml(m.name)}</option>`).join('');
+  row.innerHTML = `
+    <select class="bom-material" style="flex:2; background:var(--surface-2); border:1px solid var(--border); border-radius:9px; color:var(--text); padding:8px;">
+      <option value="">Tanlang</option>${options}
+    </select>
+    <input type="number" class="bom-qty" placeholder="Miqdor" value="${qty || ''}" min="0" step="any" style="flex:1; background:var(--surface-2); border:1px solid var(--border); border-radius:9px; color:var(--text); padding:8px;">
+    <button type="button" class="mat-btn" style="flex:0 0 auto; padding:8px 10px;" onclick="this.parentElement.remove()">✕</button>
+  `;
+  container.appendChild(row);
+}
+document.getElementById('bomAddRow').addEventListener('click', () => addBomRow());
+document.getElementById('bomSaveBtn').addEventListener('click', async () => {
+  const rows = document.querySelectorAll('#bomItemsList > div');
+  const items = [];
+  rows.forEach(row => {
+    const materialId = row.querySelector('.bom-material').value;
+    const qty = row.querySelector('.bom-qty').value;
+    if (materialId && qty) items.push({ materialId, qty });
+  });
+  try {
+    await API.saveBom(currentBomProductId, items);
+    document.getElementById('bomSheetOverlay').classList.remove('open');
+    showToast('Retseptura saqlandi');
+  } catch (e) {
+    showToast("Saqlab bo'lmadi", true);
+  }
+});
+
+document.getElementById('downloadWarehouseExcel').addEventListener('click', () => {
+  window.open('/api/reports/warehouse/excel?tgid=' + (tg?.initDataUnsafe?.user?.id || ''), '_blank');
+});
+
+// ================= Finance =================
+let financeEntries = [];
+
+async function loadFinance(){
+  try {
+    financeEntries = await API.financeEntries();
+    renderFinance();
+  } catch (e) {
+    showToast("Moliya ma'lumotlarini yuklab bo'lmadi", true);
+  }
+}
+
+async function loadPnl(){
+  try {
+    const pnl = await API.pnl();
+    const card = document.getElementById('pnlCard');
+    card.innerHTML = `
+      <div class="mat-name" style="margin-bottom:8px;">P&L (Foyda-Ziyon)</div>
+      <div class="card-extra">
+        <span>💰 Sotuv tushumi: ${pnl.salesRevenue.toFixed(0)}</span>
+        <span>➕ Boshqa tushum: ${pnl.otherIncome.toFixed(0)}</span>
+        <span>📦 Tannarx (COGS): ${pnl.cogs.toFixed(0)}</span>
+        <span>💸 Operatsion xarajat: ${pnl.opex.toFixed(0)}</span>
+      </div>
+      <div class="mat-qty ${pnl.netProfit < 0 ? 'low' : ''}" style="margin-top:10px; font-size:18px;">
+        Sof foyda: ${pnl.netProfit.toFixed(0)}
+      </div>
+    `;
+  } catch (e) {
+    showToast("P&L hisoblanmadi", true);
+  }
+}
+
+function renderFinance(){
+  const list = document.getElementById('financeList');
+  if (!financeEntries.length) {
+    list.innerHTML = `<div class="empty"><p>Hali yozuv yo'q.</p></div>`;
+    return;
+  }
+  list.innerHTML = financeEntries.map(f => `
+    <div class="mat-card" data-id="${f.id}">
+      <div class="mat-top">
+        <div>
+          <div class="mat-name">${escapeHtml(f.category || (f.type === 'income' ? 'Tushum' : 'Xarajat'))}</div>
+          <div class="mat-sub">${f.date} · ${escapeHtml(f.createdBy)}${f.note ? ' · ' + escapeHtml(f.note) : ''}</div>
+        </div>
+        <div class="mat-qty" style="color:${f.type === 'income' ? 'var(--s-buyurtma)' : 'var(--danger)'}">
+          ${f.type === 'income' ? '+' : '−'}${f.amount}
+        </div>
+      </div>
+      <div class="mat-actions">
+        <button type="button" class="mat-btn out" data-action="delete">O'chirish</button>
+      </div>
+    </div>
+  `).join('');
+
+  list.querySelectorAll('[data-action="delete"]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.closest('.mat-card').dataset.id;
+      try {
+        await API.removeFinanceEntry(id);
+        financeEntries = financeEntries.filter(f => f.id !== id);
+        renderFinance();
+        loadPnl();
+        showToast("O'chirildi");
+      } catch (e) {
+        showToast("O'chirib bo'lmadi", true);
+      }
+    });
+  });
+}
+
+document.getElementById('fabAddFinance').addEventListener('click', () => {
+  document.getElementById('fDate2').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('financeSheetOverlay').classList.add('open');
+});
+document.getElementById('financeSheetClose').addEventListener('click', () => {
+  document.getElementById('financeSheetOverlay').classList.remove('open');
+});
+document.getElementById('financeForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const type = document.getElementById('fType').value;
+  const category = document.getElementById('fCategory').value.trim();
+  const amount = document.getElementById('fAmount').value;
+  const date = document.getElementById('fDate2').value;
+  const note = document.getElementById('fNote').value.trim();
+  if (!amount) return;
+  const btn = document.getElementById('financeSubmitBtn');
+  btn.disabled = true;
+  try {
+    const entry = await API.createFinanceEntry({ type, category, amount, date, note });
+    financeEntries.unshift(entry);
+    renderFinance();
+    loadPnl();
+    e.target.reset();
+    document.getElementById('financeSheetOverlay').classList.remove('open');
+    showToast('Yozuv qo\'shildi');
+  } catch (err) {
+    showToast(err.message || "Saqlab bo'lmadi", true);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('downloadFinanceExcel').addEventListener('click', () => {
+  window.open('/api/reports/finance/excel', '_blank');
+});
+
+// ================= Serial assignment (sales) =================
+async function openAssignSerial(leadId, productName){
+  try {
+    const stockSerials = await API.serials('stock');
+    const list = document.getElementById('assignSerialList');
+    if (!stockSerials.length) {
+      list.innerHTML = `<p style="color:var(--text-muted); font-size:14px;">Omborda tayyor mahsulot yo'q.</p>`;
+    } else {
+      list.innerHTML = stockSerials.map(s => `
+        <div class="mat-card" data-sid="${s.id}" style="cursor:pointer;">
+          <div class="mat-top">
+            <div>
+              <div class="mat-name">${escapeHtml(s.serialNumber)}</div>
+              <div class="mat-sub">${escapeHtml(s.productName)}</div>
+            </div>
+          </div>
+        </div>
+      `).join('');
+      list.querySelectorAll('.mat-card').forEach(card => {
+        card.addEventListener('click', async () => {
+          try {
+            const updated = await API.assignSerial(leadId, card.dataset.sid);
+            const lead = leads.find(l => l.id === leadId);
+            if (lead) Object.assign(lead, updated);
+            render();
+            document.getElementById('assignSerialOverlay').classList.remove('open');
+            showToast('Seriya biriktirildi');
+          } catch (err) {
+            showToast(err.message || "Biriktirib bo'lmadi", true);
+          }
+        });
+      });
+    }
+    document.getElementById('assignSerialOverlay').classList.add('open');
+  } catch (e) {
+    showToast("Yuklab bo'lmadi", true);
+  }
+}
+document.getElementById('assignSerialClose').addEventListener('click', () => {
+  document.getElementById('assignSerialOverlay').classList.remove('open');
+});
+
+// ================= Materials (warehouse) =================
+
+async function loadMaterials(){
+  try {
+    materials = await API.materials();
+    renderMaterials();
+  } catch (e) {
+    showToast("Ombor ma'lumotlarini yuklab bo'lmadi", true);
+  }
+}
+
+function renderMaterials(){
+  const list = document.getElementById('materialsList');
+  if (!materials.length) {
+    list.innerHTML = `
+      <div class="empty">
+        <h3>Ombor bo'sh</h3>
+        <p>Birinchi xomashyoni qo'shish uchun yuqoridagi tugmani bosing.</p>
+      </div>`;
+    return;
+  }
+  list.innerHTML = materials.map(m => {
+    const low = m.qty <= (m.minStock || 0);
+    return `
+    <div class="mat-card" data-id="${m.id}">
+      <div class="mat-top">
+        <div>
+          <div class="mat-name">${escapeHtml(m.name)}</div>
+          <div class="mat-sub">Min: ${m.minStock} ${escapeHtml(m.unit)} · Narx: ${m.purchasePrice}</div>
+        </div>
+        <div class="mat-qty ${low ? 'low' : ''}">${m.qty} ${escapeHtml(m.unit)}</div>
+      </div>
+      <div class="mat-actions">
+        <button type="button" class="mat-btn in" data-action="in">+ Kirim</button>
+        <button type="button" class="mat-btn out" data-action="out">− Chiqim</button>
+        <button type="button" class="mat-btn" data-action="delete">O'chirish</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.mat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const card = btn.closest('.mat-card');
+      const id = card.dataset.id;
+      const action = btn.dataset.action;
+      if (action === 'delete') {
+        const doDelete = async () => {
+          try {
+            await API.removeMaterial(id);
+            materials = materials.filter(m => m.id !== id);
+            renderMaterials();
+            showToast("O'chirildi");
+          } catch (e) {
+            showToast("O'chirib bo'lmadi", true);
+          }
+        };
+        if (tg && tg.showConfirm) {
+          tg.showConfirm("O'chirmoqchimisiz?", (ok) => { if (ok) doDelete(); });
+        } else if (confirm("O'chirmoqchimisiz?")) {
+          doDelete();
+        }
+      } else {
+        openAdjustSheet(id, action);
+      }
+    });
+  });
+}
+
+let adjustContext = { id: null, type: null };
+function openAdjustSheet(id, type){
+  adjustContext = { id, type };
+  const material = materials.find(m => m.id === id);
+  document.getElementById('adjustTitle').textContent =
+    (type === 'in' ? 'Kirim: ' : 'Chiqim: ') + (material ? material.name : '');
+  document.getElementById('aQty').value = '';
+  document.getElementById('aNote').value = '';
+  document.getElementById('adjustSheetOverlay').classList.add('open');
+}
+document.getElementById('adjustSheetClose').addEventListener('click', () => {
+  document.getElementById('adjustSheetOverlay').classList.remove('open');
+});
+document.getElementById('adjustSheetOverlay').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
+});
+document.getElementById('adjustForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const qty = document.getElementById('aQty').value;
+  const note = document.getElementById('aNote').value.trim();
+  if (!qty || Number(qty) <= 0) return;
+  const btn = document.getElementById('adjustSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Saqlanmoqda...';
+  try {
+    const updated = await API.adjustMaterial(adjustContext.id, { type: adjustContext.type, qty, note });
+    const idx = materials.findIndex(m => m.id === adjustContext.id);
+    if (idx >= 0) materials[idx] = updated;
+    renderMaterials();
+    document.getElementById('adjustSheetOverlay').classList.remove('open');
+    showToast('Saqlandi');
+  } catch (err) {
+    showToast(err.message || "Saqlab bo'lmadi", true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Tasdiqlash';
+  }
+});
+
+document.getElementById('fabAddMaterial').addEventListener('click', () => {
+  document.getElementById('materialSheetOverlay').classList.add('open');
+});
+document.getElementById('materialSheetClose').addEventListener('click', () => {
+  document.getElementById('materialSheetOverlay').classList.remove('open');
+});
+document.getElementById('materialSheetOverlay').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
+});
+document.getElementById('materialForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = document.getElementById('mName').value.trim();
+  const unit = document.getElementById('mUnit').value.trim();
+  const qty = document.getElementById('mQty').value || 0;
+  const minStock = document.getElementById('mMinStock').value || 0;
+  const purchasePrice = document.getElementById('mPrice').value || 0;
+  if (!name || !unit) return;
+  const btn = document.getElementById('materialSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Saqlanmoqda...';
+  try {
+    const material = await API.createMaterial({ name, unit, qty, minStock, purchasePrice });
+    materials.push(material);
+    materials.sort((a, b) => a.name.localeCompare(b.name));
+    renderMaterials();
+    e.target.reset();
+    document.getElementById('materialSheetOverlay').classList.remove('open');
+    showToast("Xomashyo qo'shildi");
+  } catch (err) {
+    showToast(err.message || "Saqlab bo'lmadi", true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Saqlash';
+  }
+});
 
 async function loadLeads(){
   try {
@@ -763,7 +1617,7 @@ function renderList(){
 function renderDetail(lead){
   return `
   <div class="detail" onclick="event.stopPropagation()">
-    <div class="detail-label">Holatni o'zgartirish</div>
+    <div class="detail-label">Bosqichni o'zgartirish</div>
     <div class="status-grid">
       ${STATUSES.map(s => `
         <button type="button" class="status-btn ${lead.status===s.id?'selected':''}"
@@ -775,10 +1629,16 @@ function renderDetail(lead){
     <input type="text" data-role="address-edit" value="${escapeHtml(lead.address || '')}" placeholder="Manzil">
     <div class="detail-label">Mahsulot</div>
     <input type="text" data-role="product-edit" value="${escapeHtml(lead.product || '')}" placeholder="Qanday mahsulot qiziqtirdi">
+    <div class="detail-label">Shartnoma summasi</div>
+    <input type="number" data-role="amount-edit" value="${lead.dealAmount || ''}" placeholder="0" min="0" step="any">
+    ${lead.assignedSerialNumber ? `<div class="detail-label">Biriktirilgan seriya: ${escapeHtml(lead.assignedSerialNumber)}</div>` : ''}
     <div class="detail-label">Natija</div>
     <textarea data-role="comment-edit">${escapeHtml(lead.comment || '')}</textarea>
     <div class="detail-actions">
       <button type="button" class="btn-small btn-save" data-action="save">Saqlash</button>
+      <button type="button" class="btn-small" style="background:var(--surface-2); color:var(--text);" data-action="assign-serial">Seriya biriktirish</button>
+    </div>
+    <div class="detail-actions" style="margin-top:8px;">
       <button type="button" class="btn-small btn-delete" data-action="delete">O'chirish</button>
     </div>
   </div>`;
@@ -816,14 +1676,25 @@ function attachDetailHandlers(){
       const comment = card.querySelector('[data-role="comment-edit"]').value.trim();
       const address = card.querySelector('[data-role="address-edit"]').value.trim();
       const product = card.querySelector('[data-role="product-edit"]').value.trim();
+      const dealAmount = card.querySelector('[data-role="amount-edit"]').value || 0;
       try {
-        const updated = await API.update(id, { comment, address, product });
+        const updated = await API.update(id, { comment, address, product, dealAmount });
         Object.assign(lead, updated);
         showToast("Saqlandi");
         render();
       } catch (e) {
         showToast("Saqlab bo'lmadi, qaytadan urinib ko'ring", true);
       }
+    });
+  });
+
+  document.querySelectorAll('[data-action="assign-serial"]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const card = btn.closest('.card');
+      const id = card.dataset.id;
+      const lead = leads.find(l => l.id === id);
+      openAssignSerial(id, lead ? lead.product : '');
     });
   });
 
