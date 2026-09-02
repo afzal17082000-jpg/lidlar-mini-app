@@ -53,6 +53,31 @@ function uid() {
   return 'l' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
+// Sends a plain-text notification to the team group, if GROUP_CHAT_ID is configured.
+const GROUP_CHAT_ID = process.env.GROUP_CHAT_ID || '';
+
+async function notifyGroup(text) {
+  if (!GROUP_CHAT_ID || !BOT_TOKEN) return;
+  try {
+    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: GROUP_CHAT_ID, text, parse_mode: 'HTML' }),
+    });
+  } catch (e) {
+    console.error('Guruhga xabar yuborishda xatolik:', e.message);
+  }
+}
+
+const STATUS_LABELS = {
+  yangi: "Yangi",
+  boglanildi: "Bog'lanildi",
+  muzokara: "Muzokarada",
+  followup: "Follow up",
+  buyurtma: "Buyurtma berdi",
+  yetkazildi: "Yetkazildi",
+};
+
 app.get('/api/leads', async (req, res) => {
   try {
     const col = await getLeadsCollection();
@@ -86,6 +111,15 @@ app.post('/api/leads', async (req, res) => {
     const col = await getLeadsCollection();
     await col.insertOne({ ...lead });
     res.json(lead);
+
+    notifyGroup(
+      `🆕 <b>Yangi lid</b>\n` +
+      `👤 ${escapeHtmlServer(lead.name)}\n` +
+      `📞 ${escapeHtmlServer(lead.phone)}\n` +
+      (lead.source ? `🔗 ${escapeHtmlServer(lead.source)}\n` : '') +
+      (lead.comment ? `💬 ${escapeHtmlServer(lead.comment)}\n` : '') +
+      `➕ Qo'shdi: ${escapeHtmlServer(employee)}`
+    );
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Saqlashda xatolik' });
@@ -100,6 +134,7 @@ app.patch('/api/leads/:id', async (req, res) => {
     if (typeof req.body.status === 'string') update.status = req.body.status;
     if (typeof req.body.comment === 'string') update.comment = req.body.comment;
 
+    const before = await col.findOne({ id: req.params.id }, { projection: { _id: 0 } });
     const updated = await col.findOneAndUpdate(
       { id: req.params.id },
       { $set: update },
@@ -107,11 +142,27 @@ app.patch('/api/leads/:id', async (req, res) => {
     );
     if (!updated) return res.status(404).json({ error: 'Lid topilmadi' });
     res.json(updated);
+
+    if (before && update.status && update.status !== before.status) {
+      notifyGroup(
+        `🔄 <b>Holat o'zgardi</b>\n` +
+        `👤 ${escapeHtmlServer(updated.name)} (${escapeHtmlServer(updated.phone)})\n` +
+        `${STATUS_LABELS[before.status] || before.status} → <b>${STATUS_LABELS[updated.status] || updated.status}</b>\n` +
+        `✏️ Yangiladi: ${escapeHtmlServer(employee)}`
+      );
+    }
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Yangilashda xatolik' });
   }
 });
+
+function escapeHtmlServer(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
 
 app.delete('/api/leads/:id', async (req, res) => {
   try {
