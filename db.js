@@ -25,4 +25,37 @@ async function getEmployeesCollection() {
   return db.collection('employees');
 }
 
-module.exports = { getLeadsCollection, getEmployeesCollection };
+async function getMaterialsCollection() {
+  const db = await connect();
+  return db.collection('materials');
+}
+
+async function getProductsCollection() {
+  const db = await connect();
+  return db.collection('products');
+}
+
+async function getBomsCollection() {
+  const db = await connect();
+  return db.collection('boms');
+}
+
+async function getSerialsCollection() {
+  const db = await connect();
+  return db.collection('serials');
+}
+
+async function getFinanceCollection() {
+  const db = await connect();
+  return db.collection('finances');
+}
+
+module.exports = {
+  getLeadsCollection,
+  getEmployeesCollection,
+  getMaterialsCollection,
+  getProductsCollection,
+  getBomsCollection,
+  getSerialsCollection,
+  getFinanceCollection,
+};
