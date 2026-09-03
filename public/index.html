@@ -10,22 +10,25 @@
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#10192B;
-    --surface:#182642;
-    --surface-2:#1F3252;
-    --border:#2A3B5C;
-    --text:#EDEFF5;
-    --text-muted:#8C9AB8;
-    --accent:#FF9F45;
-    --accent-text:#1A1206;
-    --danger:#F0648C;
+    --bg:#F1EFFB;
+    --surface:#FFFFFF;
+    --surface-2:#F5F3FC;
+    --border:#E7E3F7;
+    --text:#211D3B;
+    --text-muted:#8B87A8;
+    --accent:#6C5DD3;
+    --accent-text:#FFFFFF;
+    --danger:#EF4444;
+    --sidebar-from:#6C5DD3;
+    --sidebar-to:#4B3F9E;
+    --success:#22C55E;
 
     --s-yangi:#5B8DEF;
     --s-boglanildi:#9B7BEF;
-    --s-muzokara:#F2B84B;
-    --s-followup:#4FC3D9;
-    --s-buyurtma:#52C97A;
-    --s-yetkazildi:#34D399;
+    --s-muzokara:#F2A94B;
+    --s-followup:#2FB8CE;
+    --s-buyurtma:#22C55E;
+    --s-yetkazildi:#16A085;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;}
@@ -113,7 +116,7 @@
     min-height:16px;
   }
 
-  /* ---------- Tabs ---------- */
+  /* ---------- Tabs (legacy, kept for compatibility) ---------- */
   .tabbar{
     display:flex;
     gap:8px;
@@ -139,6 +142,136 @@
   }
   .tab-panel.hidden{display:none;}
 
+  /* ---------- Sidebar navigation ---------- */
+  .topbar{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:16px;
+  }
+  .hamburger{
+    width:40px; height:40px;
+    border-radius:12px;
+    border:1px solid var(--border);
+    background:var(--surface);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    flex-shrink:0;
+    box-shadow:0 2px 8px rgba(76,63,158,.06);
+  }
+  .sidebar-overlay{
+    position:fixed; inset:0;
+    background:rgba(30,20,60,.35);
+    z-index:60;
+    display:none;
+  }
+  .sidebar-overlay.open{display:block;}
+  .sidebar{
+    position:fixed;
+    top:0; left:0; bottom:0;
+    width:250px;
+    background:linear-gradient(180deg, var(--sidebar-from), var(--sidebar-to));
+    z-index:61;
+    padding:20px 14px;
+    display:flex;
+    flex-direction:column;
+    transform:translateX(-100%);
+    transition:transform .25s ease;
+  }
+  .sidebar.open{ transform:translateX(0); }
+  .sidebar-brand{
+    display:flex; align-items:center; gap:10px;
+    color:#fff; font-weight:800; font-size:17px;
+    padding:6px 8px 22px;
+  }
+  .sidebar-brand .dot{
+    width:34px; height:34px; border-radius:10px;
+    background:rgba(255,255,255,.18);
+    display:flex; align-items:center; justify-content:center;
+    font-size:16px;
+  }
+  .nav-item{
+    display:flex; align-items:center; gap:12px;
+    padding:12px 12px;
+    border-radius:12px;
+    color:rgba(255,255,255,.78);
+    font-size:14.5px;
+    font-weight:600;
+    cursor:pointer;
+    margin-bottom:4px;
+  }
+  .nav-item .icon{ width:20px; text-align:center; font-size:16px; }
+  .nav-item.active{
+    background:rgba(255,255,255,.16);
+    color:#fff;
+  }
+  .nav-item.hidden{display:none;}
+  .sidebar-spacer{flex:1;}
+  .sidebar-profile{
+    background:rgba(255,255,255,.14);
+    border-radius:14px;
+    padding:12px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .sidebar-avatar{
+    width:38px; height:38px; border-radius:50%;
+    background:rgba(255,255,255,.9);
+    display:flex; align-items:center; justify-content:center;
+    color:var(--sidebar-to);
+    font-weight:800;
+    flex-shrink:0;
+  }
+  .sidebar-profile .name{ color:#fff; font-weight:700; font-size:13.5px; }
+  .sidebar-profile .role{ color:rgba(255,255,255,.7); font-size:11.5px; }
+
+  /* ---------- Dashboard ---------- */
+  .stat-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    padding:0 16px 14px;
+  }
+  .stat-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:16px;
+    box-shadow:0 2px 10px rgba(76,63,158,.06);
+  }
+  .stat-label{
+    font-size:11.5px;
+    color:var(--text-muted);
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+    margin-bottom:8px;
+  }
+  .stat-value{ font-size:24px; font-weight:800; }
+  .stat-badge{
+    display:inline-block;
+    margin-top:8px;
+    padding:3px 9px;
+    border-radius:999px;
+    font-size:11px;
+    font-weight:700;
+  }
+  .stat-badge.good{ background:#DCFCE7; color:#16A34A; }
+  .stat-badge.warn{ background:#FEE2E2; color:#DC2626; }
+
+  .rep-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:12px 14px;
+    border-bottom:1px solid var(--border);
+  }
+  .rep-row:last-child{ border-bottom:none; }
+  .rep-name{ font-weight:700; font-size:14px; }
+  .rep-stats{ font-size:12px; color:var(--text-muted); margin-top:2px; }
+  .rep-amount{ font-weight:800; color:var(--success); font-size:14px; }
+
   /* ---------- Materials (warehouse) ---------- */
   .mat-card{
     background:var(--surface);
@@ -146,6 +279,7 @@
     border-radius:14px;
     padding:14px 16px;
     margin-bottom:10px;
+    box-shadow:0 2px 10px rgba(76,63,158,.06);
   }
   .mat-top{
     display:flex;
@@ -271,6 +405,7 @@
     position:relative;
     overflow:hidden;
     cursor:pointer;
+    box-shadow:0 2px 10px rgba(76,63,158,.06);
   }
   .card::before{
     content:"";
@@ -395,7 +530,7 @@
     display:flex;
     align-items:center;
     gap:8px;
-    box-shadow:0 10px 30px rgba(255,159,69,.35);
+    box-shadow:0 10px 30px rgba(108,93,211,.35);
     cursor:pointer;
     z-index:20;
   }
@@ -519,20 +654,59 @@
 
 <div id="app" class="hidden">
 
-<div class="header" style="flex-direction:column; align-items:flex-start; gap:2px;">
-  <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
-    <h1>Lidlar</h1>
-    <div class="count" id="totalCount">0 ta</div>
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-brand"><span class="dot">🔥</span> Lidlar CRM</div>
+
+  <div class="nav-item hidden active" data-tab="dashboard" id="navDashboard"><span class="icon">🏠</span> Bosh sahifa</div>
+  <div class="nav-item" data-tab="leads" id="navLeads"><span class="icon">📋</span> Sotuv</div>
+  <div class="nav-item hidden" data-tab="catalog" id="navCatalog"><span class="icon">📖</span> Katalog</div>
+  <div class="nav-item hidden" data-tab="warehouse" id="navWarehouse"><span class="icon">📦</span> Ombor</div>
+  <div class="nav-item hidden" data-tab="production" id="navProduction"><span class="icon">🏭</span> Ishlab chiqarish</div>
+  <div class="nav-item hidden" data-tab="finance" id="navFinance"><span class="icon">💰</span> Moliya</div>
+
+  <div class="sidebar-spacer"></div>
+  <div class="sidebar-profile">
+    <div class="sidebar-avatar" id="sidebarAvatar">?</div>
+    <div>
+      <div class="name" id="sidebarName">—</div>
+      <div class="role" id="sidebarRole">—</div>
+    </div>
   </div>
-  <div id="greeting" style="font-size:13px; color:var(--text-muted);"></div>
 </div>
 
-<div class="tabbar hidden" id="tabbar">
-  <button type="button" class="tab-btn active" data-tab="leads">Sotuv</button>
-  <button type="button" class="tab-btn hidden" data-tab="catalog" id="tabCatalog">Katalog</button>
-  <button type="button" class="tab-btn hidden" data-tab="warehouse" id="tabWarehouse">Ombor</button>
-  <button type="button" class="tab-btn hidden" data-tab="production" id="tabProduction">Ishlab ch.</button>
-  <button type="button" class="tab-btn hidden" data-tab="finance" id="tabFinance">Moliya</button>
+<div class="topbar">
+  <div class="hamburger" id="hamburgerBtn">☰</div>
+  <div style="flex:1;">
+    <h1 style="font-size:18px;" id="pageTitle">Sotuv</h1>
+    <div id="greeting" style="font-size:12px; color:var(--text-muted);"></div>
+  </div>
+  <div class="count" id="totalCount">0 ta</div>
+</div>
+
+<div class="tab-panel hidden" id="dashboardPanel">
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-label">Umumiy lidlar</div>
+      <div class="stat-value" id="statLeads">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Faol bitimlar</div>
+      <div class="stat-value" id="statActive">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Ombor ogohlantirish</div>
+      <div class="stat-value" id="statStock">—</div>
+      <div class="stat-badge warn" id="statStockBadge" style="display:none;">Diqqat</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">G'alaba foizi</div>
+      <div class="stat-value" id="statWinRate">—</div>
+      <div class="stat-badge good">Yopilgan bitimlar</div>
+    </div>
+  </div>
+  <div class="detail-label" style="padding:0 16px; font-size:14px; color:var(--text);">Sotuvchilar reytingi</div>
+  <div class="mat-card" style="margin:8px 16px;" id="salesRepList"></div>
 </div>
 
 <div class="tab-panel" id="leadsPanel">
@@ -643,6 +817,10 @@
       <div class="field">
         <label>Konsultatsiya sanasi</label>
         <input type="date" id="fConsultDate">
+      </div>
+      <div class="field" id="fAssignedField" style="display:none;">
+        <label>Mas'ul sotuvchi</label>
+        <select id="fAssignedSales"><option value="">O'zim (standart)</option></select>
       </div>
       <div class="field">
         <label>Natija / Izoh</label>
@@ -968,6 +1146,16 @@ const API = {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'reassign failed');
     return data;
+  },
+  async analyticsOverview(){
+    const res = await fetch('/api/analytics/overview', { headers: authHeaders() });
+    if (!res.ok) throw new Error('analytics failed');
+    return res.json();
+  },
+  async analyticsSales(){
+    const res = await fetch('/api/analytics/sales', { headers: authHeaders() });
+    if (!res.ok) throw new Error('analytics failed');
+    return res.json();
   }
 };
 
@@ -1061,44 +1249,107 @@ function renderGreeting(){
   if (!currentEmployee) return;
   const el = document.getElementById('greeting');
   const roleLabels = { admin: "Rahbar", sales: "Sotuvchi", warehouse_production: "Omborchi/Usta", finance: "Moliyachi" };
-  el.textContent = `Xush kelibsiz, ${currentEmployee.name}! | ${roleLabels[currentEmployee.role] || currentEmployee.role} paneli`;
+  const roleLabel = roleLabels[currentEmployee.role] || currentEmployee.role;
+  el.textContent = `${roleLabel} paneli`;
+
+  document.getElementById('sidebarName').textContent = currentEmployee.name;
+  document.getElementById('sidebarRole').textContent = roleLabel;
+  document.getElementById('sidebarAvatar').textContent = (currentEmployee.name || '?').trim().charAt(0).toUpperCase();
 }
 
-// ================= Tabs =================
+// ================= Sidebar navigation =================
+const PAGE_TITLES = { dashboard: 'Bosh sahifa', leads: 'Sotuv', catalog: 'Katalog', warehouse: 'Ombor', production: 'Ishlab chiqarish', finance: 'Moliya' };
+
+function openSidebar(){
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebarOverlay').classList.add('open');
+}
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+}
+document.getElementById('hamburgerBtn').addEventListener('click', openSidebar);
+document.getElementById('sidebarOverlay').addEventListener('click', closeSidebar);
+
+function switchTab(tab){
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const navEl = document.getElementById('nav' + tab.charAt(0).toUpperCase() + tab.slice(1));
+  if (navEl) navEl.classList.add('active');
+
+  document.getElementById('dashboardPanel').classList.toggle('hidden', tab !== 'dashboard');
+  document.getElementById('leadsPanel').classList.toggle('hidden', tab !== 'leads');
+  document.getElementById('catalogPanel').classList.toggle('hidden', tab !== 'catalog');
+  document.getElementById('warehousePanel').classList.toggle('hidden', tab !== 'warehouse');
+  document.getElementById('productionPanel').classList.toggle('hidden', tab !== 'production');
+  document.getElementById('financePanel').classList.toggle('hidden', tab !== 'finance');
+  document.getElementById('fabAdd').classList.toggle('hidden', tab !== 'leads');
+  document.getElementById('pageTitle').textContent = PAGE_TITLES[tab] || 'Lidlar';
+
+  if (tab === 'dashboard') loadDashboard();
+  if (tab === 'catalog') loadCatalog();
+  if (tab === 'warehouse') loadMaterials();
+  if (tab === 'production') { loadProducts(); loadSerials(); }
+  if (tab === 'finance') { loadFinance(); loadPnl(); }
+
+  closeSidebar();
+}
+
 function initTabs(){
   if (!currentEmployee) return;
   const role = currentEmployee.role;
+  const showDashboard = role === 'admin';
   const showCatalog = ['admin', 'sales'].includes(role);
   const showWarehouse = ['admin', 'warehouse_production'].includes(role);
   const showProduction = ['admin', 'warehouse_production'].includes(role);
   const showFinance = ['admin', 'finance'].includes(role);
 
-  if (!showCatalog && !showWarehouse && !showProduction && !showFinance) return; // sales-only fallback, no bar needed
+  document.getElementById('navDashboard').classList.toggle('hidden', !showDashboard);
+  document.getElementById('navCatalog').classList.toggle('hidden', !showCatalog);
+  document.getElementById('navWarehouse').classList.toggle('hidden', !showWarehouse);
+  document.getElementById('navProduction').classList.toggle('hidden', !showProduction);
+  document.getElementById('navFinance').classList.toggle('hidden', !showFinance);
 
-  document.getElementById('tabbar').classList.remove('hidden');
-  document.getElementById('tabCatalog').classList.toggle('hidden', !showCatalog);
-  document.getElementById('tabWarehouse').classList.toggle('hidden', !showWarehouse);
-  document.getElementById('tabProduction').classList.toggle('hidden', !showProduction);
-  document.getElementById('tabFinance').classList.toggle('hidden', !showFinance);
-
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (btn.classList.contains('hidden')) return;
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      const tab = btn.dataset.tab;
-      document.getElementById('leadsPanel').classList.toggle('hidden', tab !== 'leads');
-      document.getElementById('catalogPanel').classList.toggle('hidden', tab !== 'catalog');
-      document.getElementById('warehousePanel').classList.toggle('hidden', tab !== 'warehouse');
-      document.getElementById('productionPanel').classList.toggle('hidden', tab !== 'production');
-      document.getElementById('financePanel').classList.toggle('hidden', tab !== 'finance');
-      document.getElementById('fabAdd').classList.toggle('hidden', tab !== 'leads');
-      if (tab === 'catalog') loadCatalog();
-      if (tab === 'warehouse') loadMaterials();
-      if (tab === 'production') { loadProducts(); loadSerials(); }
-      if (tab === 'finance') { loadFinance(); loadPnl(); }
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+      if (item.classList.contains('hidden')) return;
+      switchTab(item.dataset.tab);
     });
   });
+
+  // Admins land on the dashboard by default; everyone else starts on Sotuv.
+  switchTab(showDashboard ? 'dashboard' : 'leads');
+}
+
+// ================= Dashboard =================
+async function loadDashboard(){
+  try {
+    const [overview, reps] = await Promise.all([API.analyticsOverview(), API.analyticsSales()]);
+
+    document.getElementById('statLeads').textContent = overview.totalLeads;
+    document.getElementById('statActive').textContent = overview.activeDeals;
+    document.getElementById('statStock').textContent = overview.stockAlerts;
+    document.getElementById('statStockBadge').style.display = overview.stockAlerts > 0 ? 'inline-block' : 'none';
+    document.getElementById('statWinRate').textContent = overview.winRate + '%';
+
+    const list = document.getElementById('salesRepList');
+    if (!reps.length) {
+      list.innerHTML = `<div class="mat-sub" style="padding:8px;">Hali ma'lumot yo'q.</div>`;
+    } else {
+      list.innerHTML = reps.map(r => `
+        <div class="rep-row">
+          <div>
+            <div class="rep-name">${escapeHtml(r.name)}</div>
+            <div class="rep-stats">
+              Lid: ${r.leadsCount} · Konsultatsiya: ${r.consultationCount} · Muzokara: ${r.negotiationCount} · Yopdi: ${r.closedWonCount}
+            </div>
+          </div>
+          <div class="rep-amount">${r.totalDealAmount.toLocaleString()}</div>
+        </div>
+      `).join('');
+    }
+  } catch (e) {
+    showToast("Statistikani yuklab bo'lmadi", true);
+  }
 }
 
 // ================= Products / BOM / Assembly (production) =================
@@ -1972,9 +2223,25 @@ document.getElementById('fabAdd').addEventListener('click', () => {
   document.getElementById('fName').focus();
   ensureRegionsLoaded();
   ensureCatalogLoadedForForm();
+  ensureAssignedSalesField();
 });
 document.getElementById('sheetClose').addEventListener('click', () => overlay.classList.remove('open'));
 overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('open'); });
+
+async function ensureAssignedSalesField(){
+  // Only admins get to pick a different responsible salesperson when logging a lead.
+  if (!currentEmployee || currentEmployee.role !== 'admin') return;
+  const field = document.getElementById('fAssignedField');
+  field.style.display = 'block';
+  try {
+    const salesEmployees = await API.employees('sales');
+    const sel = document.getElementById('fAssignedSales');
+    sel.innerHTML = '<option value="">O\'zim (standart)</option>' +
+      salesEmployees.map(emp => `<option value="${emp.telegramId}" data-name="${escapeHtml(emp.name)}">${escapeHtml(emp.name)}</option>`).join('');
+  } catch (e) {
+    // Non-fatal: leaves the field with just the default option.
+  }
+}
 
 document.getElementById('leadForm').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -1990,6 +2257,10 @@ document.getElementById('leadForm').addEventListener('submit', async (e) => {
   const productSize = document.getElementById('fProductSize').value;
   const consultationDate = document.getElementById('fConsultDate').value;
   const comment = document.getElementById('fComment').value.trim();
+  const assignedSelect = document.getElementById('fAssignedSales');
+  const assignedOption = assignedSelect.options[assignedSelect.selectedIndex];
+  const assignedSalesTelegramId = assignedSelect.value || undefined;
+  const assignedSalesName = assignedSelect.value ? assignedOption.dataset.name : undefined;
   if (!name || !phone) return;
 
   const submitBtn = document.getElementById('submitBtn');
@@ -1999,6 +2270,7 @@ document.getElementById('leadForm').addEventListener('submit', async (e) => {
     const lead = await API.create({
       name, phone, source, region, district, address,
       productCategory, productTier, productSize, consultationDate, comment, leadDate,
+      assignedSalesTelegramId, assignedSalesName,
     });
     leads.unshift(lead);
     e.target.reset();
