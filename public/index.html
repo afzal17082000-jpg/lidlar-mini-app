@@ -612,19 +612,40 @@
           <option value="Telegram">Telegram</option>
           <option value="Qo'ng'iroq">Qo'ng'iroq</option>
           <option value="YouTube">YouTube</option>
+          <option value="Reklama">Reklama</option>
           <option value="Tavsiya qildi">Tavsiya qildi</option>
         </select>
       </div>
       <div class="field">
-        <label>Manzil</label>
-        <input type="text" id="fAddress" placeholder="Shahar, tuman...">
+        <label>Viloyat</label>
+        <select id="fRegion"><option value="">Tanlang</option></select>
       </div>
       <div class="field">
-        <label>Qanday mahsulot qiziqtirdi</label>
-        <input type="text" id="fProduct" placeholder="Masalan: elektr choynak XYZ">
+        <label>Tuman/Shahar</label>
+        <select id="fDistrict"><option value="">Avval viloyatni tanlang</option></select>
       </div>
       <div class="field">
-        <label>Natija</label>
+        <label>Manzil (aniq)</label>
+        <input type="text" id="fAddress" placeholder="Ko'cha, mo'ljal...">
+      </div>
+      <div class="field">
+        <label>Mahsulot turi</label>
+        <select id="fProductCategory"><option value="">Tanlang</option></select>
+      </div>
+      <div class="field">
+        <label>Daraja</label>
+        <select id="fProductTier"><option value="">Avval turini tanlang</option></select>
+      </div>
+      <div class="field">
+        <label>Razmer (kv)</label>
+        <select id="fProductSize"><option value="">Avval darajani tanlang</option></select>
+      </div>
+      <div class="field">
+        <label>Konsultatsiya sanasi</label>
+        <input type="date" id="fConsultDate">
+      </div>
+      <div class="field">
+        <label>Natija / Izoh</label>
         <textarea id="fComment" placeholder="Suhbat natijasi..."></textarea>
       </div>
       <button type="submit" class="submit-btn" id="submitBtn">Saqlash</button>
@@ -929,6 +950,11 @@ const API = {
   async catalog(){
     const res = await fetch('/api/catalog', { headers: authHeaders() });
     if (!res.ok) throw new Error('catalog failed');
+    return res.json();
+  },
+  async locations(){
+    const res = await fetch('/api/locations', { headers: authHeaders() });
+    if (!res.ok) throw new Error('locations failed');
     return res.json();
   },
   async employees(role){
@@ -1707,8 +1733,10 @@ function renderList(){
       <div class="card-extra">
         ${lead.leadDate ? `<span>📅 ${escapeHtml(lead.leadDate)}</span>` : ''}
         ${lead.product ? `<span>🫖 ${escapeHtml(lead.product)}</span>` : ''}
+        ${(lead.region || lead.district) ? `<span>🗺️ ${escapeHtml([lead.region, lead.district].filter(Boolean).join(', '))}</span>` : ''}
         ${lead.address ? `<span>📍 ${escapeHtml(lead.address)}</span>` : ''}
         ${lead.source ? `<span>🔗 ${escapeHtml(lead.source)}</span>` : ''}
+        ${lead.consultationDate ? `<span>🗓️ Konsultatsiya: ${escapeHtml(lead.consultationDate)}</span>` : ''}
       </div>
       ${lead.comment ? `<div class="card-comment">${escapeHtml(lead.comment)}</div>` : ''}
       <div class="card-meta">
@@ -1886,10 +1914,64 @@ function showToast(msg, isError){
 
 // ---------- Add lead sheet ----------
 const overlay = document.getElementById('sheetOverlay');
+
+let regionsData = null;
+async function ensureRegionsLoaded(){
+  if (regionsData) return;
+  try {
+    regionsData = await API.locations();
+    const regionSelect = document.getElementById('fRegion');
+    regionSelect.innerHTML = '<option value="">Tanlang</option>' +
+      Object.keys(regionsData).map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
+  } catch (e) {
+    // Non-fatal: region/district stay optional if this fails to load.
+  }
+}
+document.getElementById('fRegion').addEventListener('change', (e) => {
+  const districtSelect = document.getElementById('fDistrict');
+  const region = e.target.value;
+  const districts = (regionsData && regionsData[region]) || [];
+  districtSelect.innerHTML = '<option value="">Tanlang</option>' +
+    districts.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+});
+
+async function ensureCatalogLoadedForForm(){
+  if (catalogData) { populateProductCategorySelect(); return; }
+  try {
+    catalogData = await API.catalog();
+    populateProductCategorySelect();
+  } catch (e) {
+    // Non-fatal: product selection stays optional if this fails to load.
+  }
+}
+function populateProductCategorySelect(){
+  if (!catalogData) return;
+  const sel = document.getElementById('fProductCategory');
+  sel.innerHTML = '<option value="">Tanlang</option>' +
+    Object.entries(catalogData).map(([key, cat]) => `<option value="${key}">${escapeHtml(cat.label)}</option>`).join('');
+}
+document.getElementById('fProductCategory').addEventListener('change', (e) => {
+  const catKey = e.target.value;
+  const tierSelect = document.getElementById('fProductTier');
+  const sizeSelect = document.getElementById('fProductSize');
+  const cat = catalogData && catalogData[catKey];
+  if (!cat) {
+    tierSelect.innerHTML = '<option value="">Avval turini tanlang</option>';
+    sizeSelect.innerHTML = '<option value="">Avval darajani tanlang</option>';
+    return;
+  }
+  tierSelect.innerHTML = '<option value="">Tanlang</option>' +
+    Object.entries(cat.tiers).map(([key, t]) => `<option value="${key}">${escapeHtml(t.label)}</option>`).join('');
+  sizeSelect.innerHTML = '<option value="">Tanlang</option>' +
+    cat.sizes.map(s => `<option value="${s}">${s} kv</option>`).join('');
+});
+
 document.getElementById('fabAdd').addEventListener('click', () => {
   overlay.classList.add('open');
   document.getElementById('fDate').value = new Date().toISOString().slice(0, 10);
   document.getElementById('fName').focus();
+  ensureRegionsLoaded();
+  ensureCatalogLoadedForForm();
 });
 document.getElementById('sheetClose').addEventListener('click', () => overlay.classList.remove('open'));
 overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('open'); });
@@ -1900,8 +1982,13 @@ document.getElementById('leadForm').addEventListener('submit', async (e) => {
   const leadDate = document.getElementById('fDate').value;
   const phone = document.getElementById('fPhone').value.trim();
   const source = document.getElementById('fSource').value;
+  const region = document.getElementById('fRegion').value;
+  const district = document.getElementById('fDistrict').value;
   const address = document.getElementById('fAddress').value.trim();
-  const product = document.getElementById('fProduct').value.trim();
+  const productCategory = document.getElementById('fProductCategory').value;
+  const productTier = document.getElementById('fProductTier').value;
+  const productSize = document.getElementById('fProductSize').value;
+  const consultationDate = document.getElementById('fConsultDate').value;
   const comment = document.getElementById('fComment').value.trim();
   if (!name || !phone) return;
 
@@ -1909,7 +1996,10 @@ document.getElementById('leadForm').addEventListener('submit', async (e) => {
   submitBtn.disabled = true;
   submitBtn.textContent = 'Saqlanmoqda...';
   try {
-    const lead = await API.create({ name, phone, source, address, product, comment, leadDate });
+    const lead = await API.create({
+      name, phone, source, region, district, address,
+      productCategory, productTier, productSize, consultationDate, comment, leadDate,
+    });
     leads.unshift(lead);
     e.target.reset();
     overlay.classList.remove('open');
