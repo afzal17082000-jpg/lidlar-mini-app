@@ -184,6 +184,28 @@ app.get('/api/catalog', attachEmployee, requireRole('admin', 'sales', 'warehouse
   res.json(PRODUCT_CATALOG);
 });
 
+// ================= Locations (Uzbekistan regions & districts) =================
+const REGIONS = {
+  "Toshkent shahri": ["Bektemir", "Chilonzor", "Yakkasaroy", "Mirobod", "Mirzo Ulug'bek", "Olmazor", "Sergeli", "Shayxontohur", "Uchtepa", "Yashnobod", "Yunusobod", "Yangihayot"],
+  "Toshkent viloyati": ["Bekobod", "Bo'ka", "Bo'stonliq", "Chinoz", "Qibray", "Ohangaron", "Oqqo'rg'on", "Parkent", "Piskent", "Quyichirchiq", "Yuqorichirchiq", "O'rtachirchiq", "Zangiota", "Toshkent tumani", "Yangiyo'l"],
+  "Andijon": ["Andijon shahri", "Andijon tumani", "Asaka", "Baliqchi", "Bo'z", "Buloqboshi", "Izboskan", "Jalaquduq", "Xo'jaobod", "Qo'rg'ontepa", "Marhamat", "Oltinko'l", "Paxtaobod", "Shahrixon", "Ulug'nor", "Xonobod"],
+  "Buxoro": ["Buxoro shahri", "Buxoro tumani", "G'ijduvon", "Jondor", "Kogon", "Qorako'l", "Qorovulbozor", "Peshku", "Romitan", "Shofirkon", "Vobkent", "Olot"],
+  "Farg'ona": ["Farg'ona shahri", "Farg'ona tumani", "Beshariq", "Bog'dod", "Buvayda", "Dang'ara", "Furqat", "Qo'shtepa", "Oltiariq", "Quva", "Quvasoy", "Rishton", "So'x", "Toshloq", "Uchko'prik", "O'zbekiston tumani", "Yozyovon", "Marg'ilon", "Qo'qon"],
+  "Jizzax": ["Jizzax shahri", "Arnasoy", "Baxmal", "Do'stlik", "Forish", "G'allaorol", "Mirzachoʻl", "Paxtakor", "Yangiobod", "Zafarobod", "Zarbdor", "Zomin"],
+  "Xorazm": ["Urganch shahri", "Urganch tumani", "Bog'ot", "Gurlan", "Xiva", "Xonqa", "Qo'shko'pir", "Shovot", "Yangiariq", "Yangibozor"],
+  "Namangan": ["Namangan shahri", "Namangan tumani", "Chortoq", "Chust", "Kosonsoy", "Mingbuloq", "Norin", "Pop", "To'raqo'rg'on", "Uychi", "Uchqo'rg'on", "Yangiqo'rg'on"],
+  "Navoiy": ["Navoiy shahri", "Zarafshon", "Karmana", "Konimex", "Navbahor", "Nurota", "Qiziltepa", "Tomdi", "Uchquduq", "Xatirchi"],
+  "Qashqadaryo": ["Qarshi shahri", "Qarshi tumani", "Dehqonobod", "G'uzor", "Kasbi", "Kitob", "Koson", "Mirishkor", "Muborak", "Nishon", "Chiroqchi", "Shahrisabz", "Yakkabog'"],
+  "Samarqand": ["Samarqand shahri", "Samarqand tumani", "Bulung'ur", "Ishtixon", "Jomboy", "Kattaqo'rg'on", "Narpay", "Nurobod", "Oqdaryo", "Payariq", "Pastdarg'om", "Paxtachi", "Toyloq", "Urgut"],
+  "Sirdaryo": ["Guliston shahri", "Guliston tumani", "Boyovut", "Xovos", "Mirzaobod", "Sardoba", "Sayxunobod", "Sirdaryo", "Shirin"],
+  "Surxondaryo": ["Termiz shahri", "Angor", "Bandixon", "Boysun", "Denov", "Jarqo'rg'on", "Qiziriq", "Qumqo'rg'on", "Muzrabot", "Oltinsoy", "Sariosiyo", "Sherobod", "Shorchi", "Termiz tumani", "Uzun"],
+  "Qoraqalpog'iston": ["Nukus shahri", "Amudaryo", "Beruniy", "Chimboy", "Ellikqal'a", "Kegeyli", "Mo'ynoq", "Nukus tumani", "Qanliko'l", "Qorao'zak", "Qo'ng'irot", "Shumanay", "Taxtako'pir", "To'rtko'l", "Xo'jayli"],
+};
+
+app.get('/api/locations', attachEmployee, requireRole('admin', 'sales'), (req, res) => {
+  res.json(REGIONS);
+});
+
 // ================= Employees (registration) =================
 
 app.get('/api/employees/me', async (req, res) => {
@@ -268,19 +290,42 @@ app.post('/api/leads', async (req, res) => {
     }
   }
 
-  const { name, phone, source, address, product, comment, leadDate } = req.body || {};
+  const {
+    name, phone, source, address, product, comment, leadDate,
+    region, district, productCategory, productTier, productSize, consultationDate,
+  } = req.body || {};
   if (!name || !phone) return res.status(400).json({ error: "Ism va telefon raqami majburiy" });
   const employeeName = getEmployeeName(req);
+
+  // Build a human-readable product label from the catalog selection, if given.
+  let productLabel = product || '';
+  if (productCategory && productTier && productSize) {
+    const cat = PRODUCT_CATALOG[productCategory];
+    const tier = cat && cat.tiers[productTier];
+    if (cat && tier) {
+      productLabel = `${cat.label} ${tier.label} ${productSize} kv`;
+    }
+  }
+
+  const initialStatus = consultationDate ? 'consultation' : 'lead';
+
   const lead = {
     id: uid(),
     name: String(name).trim(),
     phone: String(phone).trim(),
     source: source || '',
     address: address || '',
-    product: product || '',
+    region: region || '',
+    district: district || '',
+    product: productLabel,
+    productCategory: productCategory || '',
+    productTier: productTier || '',
+    productSize: productSize || '',
     comment: comment || '',
     leadDate: leadDate || new Date().toISOString().slice(0, 10),
-    status: 'lead',
+    consultationDate: consultationDate || '',
+    consultationNotified: false,
+    status: initialStatus,
     dealAmount: 0,
     assignedSerialId: null,
     assignedSerialNumber: '',
@@ -358,10 +403,22 @@ app.patch('/api/leads/:id', async (req, res) => {
     if (typeof req.body.address === 'string') update.address = req.body.address;
     if (typeof req.body.product === 'string') update.product = req.body.product;
     if (typeof req.body.leadDate === 'string') update.leadDate = req.body.leadDate;
+    if (typeof req.body.region === 'string') update.region = req.body.region;
+    if (typeof req.body.district === 'string') update.district = req.body.district;
     if (req.body.dealAmount !== undefined) update.dealAmount = Number(req.body.dealAmount) || 0;
 
     const before = await col.findOne({ id: req.params.id });
     if (!before) return res.status(404).json({ error: 'Lid topilmadi' });
+
+    // Setting/changing the consultation date resets the notification flag and,
+    // if the deal is still at the raw 'lead' stage, auto-advances it.
+    if (typeof req.body.consultationDate === 'string' && req.body.consultationDate !== before.consultationDate) {
+      update.consultationDate = req.body.consultationDate;
+      update.consultationNotified = false;
+      if (req.body.consultationDate && before.status === 'lead' && !update.status) {
+        update.status = 'consultation';
+      }
+    }
 
     if (update.status && update.status !== before.status) {
       await col.updateOne(
@@ -787,10 +844,13 @@ app.get('/api/reports/sales/excel', attachEmployee, requireRole('admin', 'financ
       { header: 'Mijoz', key: 'name', width: 22 },
       { header: 'Telefon', key: 'phone', width: 18 },
       { header: 'Bosqich', key: 'status', width: 20 },
-      { header: 'Mahsulot', key: 'product', width: 22 },
+      { header: 'Mahsulot', key: 'product', width: 24 },
+      { header: 'Viloyat', key: 'region', width: 18 },
+      { header: 'Tuman/Shahar', key: 'district', width: 18 },
       { header: 'Summa', key: 'dealAmount', width: 14 },
       { header: 'Seriya', key: 'assignedSerialNumber', width: 16 },
-      { header: "Qo'shdi", key: 'addedBy', width: 18 },
+      { header: 'Yaratdi', key: 'addedBy', width: 18 },
+      { header: "Mas'ul sotuvchi", key: 'assignedSalesName', width: 18 },
       { header: 'Sana', key: 'leadDate', width: 14 },
     ];
     leads.forEach(l => ws.addRow({ ...l, status: STATUS_LABELS[l.status] || l.status }));
@@ -873,6 +933,37 @@ app.get('/api/reports/finance/excel', attachEmployee, requireRole('admin', 'fina
     res.status(500).json({ error: 'Hisobot yaratishda xatolik' });
   }
 });
+
+// ================= Consultation date reminders (background check) =================
+// Every 15 minutes, find deals whose consultation date is today and haven't
+// been notified yet, and ping the assigned sales rep.
+async function checkConsultationReminders() {
+  try {
+    const col = await getLeadsCollection();
+    const today = new Date().toISOString().slice(0, 10);
+    const due = await col.find({
+      consultationDate: today,
+      consultationNotified: { $ne: true },
+      status: { $nin: ['closed_won', 'closed_lost'] },
+    }).toArray();
+
+    for (const lead of due) {
+      if (lead.assignedSalesTelegramId) {
+        await notifyUser(
+          lead.assignedSalesTelegramId,
+          `📅 <b>Bugun konsultatsiya!</b>\n👤 ${escapeHtmlServer(lead.name)} (${escapeHtmlServer(lead.phone)})\n` +
+          (lead.product ? `🫖 ${escapeHtmlServer(lead.product)}\n` : '') +
+          (lead.address ? `📍 ${escapeHtmlServer(lead.address)}` : '')
+        );
+      }
+      await col.updateOne({ id: lead.id }, { $set: { consultationNotified: true } });
+    }
+  } catch (e) {
+    console.error('Konsultatsiya eslatmalarini tekshirishda xatolik:', e.message);
+  }
+}
+setInterval(checkConsultationReminders, 15 * 60 * 1000);
+checkConsultationReminders();
 
 app.get('/health', (req, res) => res.json({ ok: true }));
 
