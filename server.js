@@ -120,11 +120,11 @@ function notifyUser(telegramId, text) { return sendTelegramMessage(telegramId, t
 const STATUS_LABELS = {
   lead: "Yangi lid",
   consultation: "Konsultatsiya",
+  negotiation: "Muzokarada",
   contract: "Shartnoma",
-  production: "Ishlab chiqarish/Bron",
-  installation: "O'rnatish",
-  won: "Yopildi (muvaffaqiyatli)",
-  lost: "Otkaz",
+  production: "Ishlab chiqarish",
+  closed_won: "Sotildi",
+  closed_lost: "Otkaz",
 };
 
 const ROLE_LABELS = {
@@ -133,6 +133,56 @@ const ROLE_LABELS = {
   warehouse_production: "Omborchi/Usta",
   finance: "Moliyachi",
 };
+
+// ================= Product knowledge base (static catalog) =================
+// Reference catalog for sales: category -> tiers with fixed specs.
+// All sizes ship with free delivery across Uzbekistan.
+const PRODUCT_CATALOG = {
+  bunkerlik: {
+    label: "Bunkerlik (avtomat)",
+    sizes: [150, 200, 300, 400, 500],
+    tiers: {
+      silver: {
+        label: "Silver",
+        specs: "Steklovata teploizolyatsiya (4 tomon), 100 kg bunker, oddiy miyya, 65W ventilyator, dvornik motor, komplektida kul tortgich.",
+      },
+      gold: {
+        label: "Gold",
+        specs: "Steklovata teploizolyatsiya (4 tomon), 120 kg bunker, oddiy miyya, 85W ventilyator, 0.25 kW 220V motor, 2 talik podacha-obratka klapani, kul tortgich, kuldon va gradusnik.",
+      },
+      platinium: {
+        label: "Platinium",
+        specs: "Basalt teploizolyatsiya (4 tomon), 150 kg bunker, aqlli shitga terilgan miyya, 120W ventilyator, 0.37 kW 220V motor, 2 talik podacha-obratka klapan, o'ng/chapga siljish joyi, tiqilishga qarshi va shnegni oldi/orqaga qilish knopkasi, kul tortgich, kuldon va gradusnik.",
+      },
+      premium_platinium: {
+        label: "Premium Platinium",
+        specs: "Basalt teploizolyatsiya (4 tomon), 150 kg bunker, aqlli shitga terilgan Wi-Fi miyya, 120W ventilyator, 0.37 kW 220V motor, 2 talik podacha-obratka klapan, o'ng/chapga siljish joyi, tiqilib qolganda avtomatik orqaga/oldinga ishlovchi shneg, kul tortgich, kuldon, gradusnik, stabilizator va vzrivnoy klapan.",
+      },
+    },
+  },
+  bunkersiz: {
+    label: "Bunkersiz (poluavtomat)",
+    sizes: [150, 200, 300, 400, 500],
+    tiers: {
+      silver: {
+        label: "Silver",
+        specs: "Steklovata teploizolyatsiya (4 tomon), sariq oddiy miyya, ventilyator.",
+      },
+      gold: {
+        label: "Gold",
+        specs: "Basalt teploizolyatsiya (4 tomon), shitga terilgan aqlli miyya, ventilyator, 2 talik podacha-obratka klapan, 2 ta siljitish joyi, kuldon, kurakcha va kul tortgich.",
+      },
+      platinium: {
+        label: "Platinium",
+        specs: "Basalt teploizolyatsiya (4 tomon), shitga terilgan aqlli miyya, ventilyator, 2 talik podacha-obratka klapan, 2 ta siljitish joyi, kuldon, kurakcha, kul tortgich hamda toksiz ishlash uchun regulyator tyagasi.",
+      },
+    },
+  },
+};
+
+app.get('/api/catalog', attachEmployee, requireRole('admin', 'sales', 'warehouse_production'), (req, res) => {
+  res.json(PRODUCT_CATALOG);
+});
 
 // ================= Employees (registration) =================
 
@@ -175,6 +225,20 @@ app.post('/api/employees', async (req, res) => {
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Saqlashda xatolik' });
+  }
+});
+
+// List employees, optionally filtered by role (used to pick who a lead is reassigned to).
+app.get('/api/employees', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
+  try {
+    const col = await getEmployeesCollection();
+    const filter = {};
+    if (req.query.role) filter.role = req.query.role;
+    const employees = await col.find(filter, { projection: { _id: 0, telegramId: 1, name: 1, role: 1 } }).toArray();
+    res.json(employees);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Bazaga ulanishda xatolik' });
   }
 });
 
@@ -221,10 +285,16 @@ app.post('/api/leads', async (req, res) => {
     assignedSerialId: null,
     assignedSerialNumber: '',
     createdAt: Date.now(),
+    // Creator (who first captured the lead) vs. the sales rep currently responsible —
+    // these can diverge after a reassignment.
     addedBy: employeeName,
+    createdByTelegramId: user ? user.id : null,
+    assignedSalesName: employeeName,
+    assignedSalesTelegramId: user ? user.id : null,
     updatedBy: employeeName,
     updatedAt: Date.now(),
     responsibleTelegramId: user ? user.id : null,
+    history: [{ ts: Date.now(), by: employeeName, action: 'created', detail: '' }],
   };
   try {
     const col = await getLeadsCollection();
@@ -239,6 +309,42 @@ app.post('/api/leads', async (req, res) => {
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Saqlashda xatolik' });
+  }
+});
+
+// Reassign a lead to a different sales rep.
+app.post('/api/leads/:id/reassign', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
+  const { toTelegramId, toName } = req.body || {};
+  if (!toTelegramId || !toName) return res.status(400).json({ error: "Xodim tanlanmagan" });
+  try {
+    const col = await getLeadsCollection();
+    const employeeName = getEmployeeName(req);
+    const lead = await col.findOne({ id: req.params.id });
+    if (!lead) return res.status(404).json({ error: 'Lid topilmadi' });
+
+    const historyEntry = {
+      ts: Date.now(), by: employeeName, action: 'reassign',
+      detail: `${lead.assignedSalesName || ''} → ${toName}`,
+    };
+    const updated = await col.findOneAndUpdate(
+      { id: req.params.id },
+      {
+        $set: {
+          assignedSalesName: toName,
+          assignedSalesTelegramId: Number(toTelegramId),
+          responsibleTelegramId: Number(toTelegramId),
+          updatedBy: employeeName,
+          updatedAt: Date.now(),
+        },
+        $push: { history: historyEntry },
+      },
+      { returnDocument: 'after', projection: { _id: 0 } }
+    );
+    res.json(updated);
+    notifyUser(Number(toTelegramId), `📋 <b>Sizga lid biriktirildi</b>\n👤 ${escapeHtmlServer(lead.name)} (${escapeHtmlServer(lead.phone)})`);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Qayta biriktirishda xatolik" });
   }
 });
 
@@ -257,6 +363,16 @@ app.patch('/api/leads/:id', async (req, res) => {
     const before = await col.findOne({ id: req.params.id });
     if (!before) return res.status(404).json({ error: 'Lid topilmadi' });
 
+    if (update.status && update.status !== before.status) {
+      await col.updateOne(
+        { id: req.params.id },
+        { $push: { history: {
+          ts: Date.now(), by: employeeName, action: 'status',
+          detail: `${STATUS_LABELS[before.status] || before.status} → ${STATUS_LABELS[update.status] || update.status}`,
+        } } }
+      );
+    }
+
     const updated = await col.findOneAndUpdate(
       { id: req.params.id },
       { $set: update },
@@ -274,7 +390,7 @@ app.patch('/api/leads/:id', async (req, res) => {
 
       const serialsCol = await getSerialsCollection();
 
-      if (update.status === 'won') {
+      if (update.status === 'closed_won') {
         if (updated.assignedSerialId) {
           const warrantyUntil = new Date();
           warrantyUntil.setMonth(warrantyUntil.getMonth() + 24);
@@ -289,7 +405,7 @@ app.patch('/api/leads/:id', async (req, res) => {
         );
       }
 
-      if (update.status === 'lost' && updated.assignedSerialId) {
+      if (update.status === 'closed_lost' && updated.assignedSerialId) {
         await serialsCol.updateOne(
           { id: updated.assignedSerialId, status: 'reserved' },
           { $set: { status: 'stock', dealId: null } }
@@ -634,7 +750,7 @@ app.get('/api/finance/pnl', attachEmployee, requireRole('admin', 'finance'), asy
     const serialsCol = await getSerialsCollection();
     const financeCol = await getFinanceCollection();
 
-    const wonDeals = await leadsCol.find({ status: 'won' }).toArray();
+    const wonDeals = await leadsCol.find({ status: 'closed_won' }).toArray();
     const salesRevenue = wonDeals.reduce((sum, d) => sum + (d.dealAmount || 0), 0);
 
     const soldSerials = await serialsCol.find({ status: 'sold' }).toArray();
