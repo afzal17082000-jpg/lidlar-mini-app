@@ -519,13 +519,17 @@
 
 <div id="app" class="hidden">
 
-<div class="header">
-  <h1>Lidlar</h1>
-  <div class="count" id="totalCount">0 ta</div>
+<div class="header" style="flex-direction:column; align-items:flex-start; gap:2px;">
+  <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+    <h1>Lidlar</h1>
+    <div class="count" id="totalCount">0 ta</div>
+  </div>
+  <div id="greeting" style="font-size:13px; color:var(--text-muted);"></div>
 </div>
 
 <div class="tabbar hidden" id="tabbar">
   <button type="button" class="tab-btn active" data-tab="leads">Sotuv</button>
+  <button type="button" class="tab-btn hidden" data-tab="catalog" id="tabCatalog">Katalog</button>
   <button type="button" class="tab-btn hidden" data-tab="warehouse" id="tabWarehouse">Ombor</button>
   <button type="button" class="tab-btn hidden" data-tab="production" id="tabProduction">Ishlab ch.</button>
   <button type="button" class="tab-btn hidden" data-tab="finance" id="tabFinance">Moliya</button>
@@ -547,6 +551,11 @@
   Yangi lid
 </button>
 
+</div>
+
+<div class="tab-panel hidden" id="catalogPanel">
+  <div class="detail-label" style="padding:0 16px;">Bepul dostavka O'zbekiston bo'ylab</div>
+  <div class="list" id="catalogList" style="padding:0 16px;"></div>
 </div>
 
 <div class="tab-panel hidden" id="warehousePanel">
@@ -762,6 +771,17 @@
   </div>
 </div>
 
+<div class="sheet-overlay" id="reassignOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Qayta biriktirish</h2>
+      <button class="sheet-close" id="reassignClose">✕</button>
+    </div>
+    <div class="detail-label">Sotuvchini tanlang</div>
+    <div id="reassignList"></div>
+  </div>
+</div>
+
 </div>
 
 <div class="toast" id="toast"></div>
@@ -774,11 +794,11 @@ if (tg) { tg.ready(); tg.expand(); }
 const STATUSES = [
   { id: 'lead',          label: "Yangi lid",         color: 'var(--s-yangi)' },
   { id: 'consultation',  label: "Konsultatsiya",     color: 'var(--s-boglanildi)' },
-  { id: 'contract',      label: "Shartnoma",         color: 'var(--s-muzokara)' },
+  { id: 'negotiation',   label: "Muzokarada",        color: 'var(--s-muzokara)' },
+  { id: 'contract',      label: "Shartnoma",         color: '#8B7FD9' },
   { id: 'production',    label: "Ishlab chiqarish",  color: 'var(--s-followup)' },
-  { id: 'installation',  label: "O'rnatish",         color: '#8B7FD9' },
-  { id: 'won',           label: "Yopildi",           color: 'var(--s-buyurtma)' },
-  { id: 'lost',          label: "Otkaz",             color: 'var(--danger)' },
+  { id: 'closed_won',    label: "Sotildi",           color: 'var(--s-buyurtma)' },
+  { id: 'closed_lost',   label: "Otkaz",             color: 'var(--danger)' },
 ];
 const statusById = Object.fromEntries(STATUSES.map(s => [s.id, s]));
 
@@ -905,6 +925,23 @@ const API = {
     const res = await fetch('/api/finance/pnl', { headers: authHeaders() });
     if (!res.ok) throw new Error('pnl failed');
     return res.json();
+  },
+  async catalog(){
+    const res = await fetch('/api/catalog', { headers: authHeaders() });
+    if (!res.ok) throw new Error('catalog failed');
+    return res.json();
+  },
+  async employees(role){
+    const url = role ? '/api/employees?role=' + role : '/api/employees';
+    const res = await fetch(url, { headers: authHeaders() });
+    if (!res.ok) throw new Error('employees failed');
+    return res.json();
+  },
+  async reassign(leadId, toTelegramId, toName){
+    const res = await fetch('/api/leads/' + leadId + '/reassign', { method:'POST', headers: authHeaders(true), body: JSON.stringify({ toTelegramId, toName }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'reassign failed');
+    return data;
   }
 };
 
@@ -988,22 +1025,32 @@ let appStarted = false;
 async function startApp(){
   if (appStarted) return;
   appStarted = true;
+  renderGreeting();
   initTabs();
   await loadLeads();
   render();
+}
+
+function renderGreeting(){
+  if (!currentEmployee) return;
+  const el = document.getElementById('greeting');
+  const roleLabels = { admin: "Rahbar", sales: "Sotuvchi", warehouse_production: "Omborchi/Usta", finance: "Moliyachi" };
+  el.textContent = `Xush kelibsiz, ${currentEmployee.name}! | ${roleLabels[currentEmployee.role] || currentEmployee.role} paneli`;
 }
 
 // ================= Tabs =================
 function initTabs(){
   if (!currentEmployee) return;
   const role = currentEmployee.role;
+  const showCatalog = ['admin', 'sales'].includes(role);
   const showWarehouse = ['admin', 'warehouse_production'].includes(role);
   const showProduction = ['admin', 'warehouse_production'].includes(role);
   const showFinance = ['admin', 'finance'].includes(role);
 
-  if (!showWarehouse && !showProduction && !showFinance) return; // sales sees leads tab only, no bar needed
+  if (!showCatalog && !showWarehouse && !showProduction && !showFinance) return; // sales-only fallback, no bar needed
 
   document.getElementById('tabbar').classList.remove('hidden');
+  document.getElementById('tabCatalog').classList.toggle('hidden', !showCatalog);
   document.getElementById('tabWarehouse').classList.toggle('hidden', !showWarehouse);
   document.getElementById('tabProduction').classList.toggle('hidden', !showProduction);
   document.getElementById('tabFinance').classList.toggle('hidden', !showFinance);
@@ -1015,10 +1062,12 @@ function initTabs(){
       btn.classList.add('active');
       const tab = btn.dataset.tab;
       document.getElementById('leadsPanel').classList.toggle('hidden', tab !== 'leads');
+      document.getElementById('catalogPanel').classList.toggle('hidden', tab !== 'catalog');
       document.getElementById('warehousePanel').classList.toggle('hidden', tab !== 'warehouse');
       document.getElementById('productionPanel').classList.toggle('hidden', tab !== 'production');
       document.getElementById('financePanel').classList.toggle('hidden', tab !== 'finance');
       document.getElementById('fabAdd').classList.toggle('hidden', tab !== 'leads');
+      if (tab === 'catalog') loadCatalog();
       if (tab === 'warehouse') loadMaterials();
       if (tab === 'production') { loadProducts(); loadSerials(); }
       if (tab === 'finance') { loadFinance(); loadPnl(); }
@@ -1220,6 +1269,37 @@ document.getElementById('downloadWarehouseExcel').addEventListener('click', () =
 });
 
 // ================= Finance =================
+// ================= Catalog (knowledge base for sales) =================
+let catalogData = null;
+async function loadCatalog(){
+  if (catalogData) { renderCatalog(); return; }
+  try {
+    catalogData = await API.catalog();
+    renderCatalog();
+  } catch (e) {
+    showToast("Katalogni yuklab bo'lmadi", true);
+  }
+}
+
+function renderCatalog(){
+  const list = document.getElementById('catalogList');
+  if (!catalogData) return;
+  const html = Object.entries(catalogData).map(([catKey, cat]) => {
+    const tiersHtml = Object.entries(cat.tiers).map(([tierKey, tier]) => `
+      <div class="mat-card" style="margin-bottom:8px;">
+        <div class="mat-name">${escapeHtml(tier.label)}</div>
+        <div class="card-comment" style="margin-top:6px;">${escapeHtml(tier.specs)}</div>
+      </div>
+    `).join('');
+    return `
+      <div class="detail-label" style="margin-top:14px; font-size:14px; color:var(--text);">${escapeHtml(cat.label)}</div>
+      <div class="mat-sub" style="margin-bottom:8px;">Razmerlar: ${cat.sizes.join(', ')} kv · Bepul dostavka</div>
+      ${tiersHtml}
+    `;
+  }).join('');
+  list.innerHTML = html;
+}
+
 let financeEntries = [];
 
 async function loadFinance(){
@@ -1367,6 +1447,43 @@ async function openAssignSerial(leadId, productName){
 }
 document.getElementById('assignSerialClose').addEventListener('click', () => {
   document.getElementById('assignSerialOverlay').classList.remove('open');
+});
+
+// ================= Reassign lead to another sales rep =================
+async function openReassignSheet(leadId){
+  try {
+    const salesEmployees = await API.employees('sales');
+    const list = document.getElementById('reassignList');
+    if (!salesEmployees.length) {
+      list.innerHTML = `<p style="color:var(--text-muted); font-size:14px;">Sotuvchilar topilmadi.</p>`;
+    } else {
+      list.innerHTML = salesEmployees.map(emp => `
+        <div class="mat-card" data-tgid="${emp.telegramId}" data-name="${escapeHtml(emp.name)}" style="cursor:pointer;">
+          <div class="mat-name">${escapeHtml(emp.name)}</div>
+        </div>
+      `).join('');
+      list.querySelectorAll('.mat-card').forEach(card => {
+        card.addEventListener('click', async () => {
+          try {
+            const updated = await API.reassign(leadId, card.dataset.tgid, card.dataset.name);
+            const lead = leads.find(l => l.id === leadId);
+            if (lead) Object.assign(lead, updated);
+            render();
+            document.getElementById('reassignOverlay').classList.remove('open');
+            showToast('Qayta biriktirildi');
+          } catch (err) {
+            showToast(err.message || "Biriktirib bo'lmadi", true);
+          }
+        });
+      });
+    }
+    document.getElementById('reassignOverlay').classList.add('open');
+  } catch (e) {
+    showToast("Yuklab bo'lmadi", true);
+  }
+}
+document.getElementById('reassignClose').addEventListener('click', () => {
+  document.getElementById('reassignOverlay').classList.remove('open');
 });
 
 // ================= Materials (warehouse) =================
@@ -1575,9 +1692,9 @@ function renderList(){
   list.innerHTML = arr.map(lead => {
     const st = statusById[lead.status] || STATUSES[0];
     const isOpen = expandedId === lead.id;
-    const whoLine = lead.addedBy === lead.updatedBy
-      ? `Qo'shdi: ${escapeHtml(lead.addedBy)}`
-      : `Qo'shdi: ${escapeHtml(lead.addedBy)} · Yangiladi: ${escapeHtml(lead.updatedBy)}`;
+    const whoLine = lead.addedBy === (lead.assignedSalesName || lead.addedBy)
+      ? `Yaratdi: ${escapeHtml(lead.addedBy)}`
+      : `Yaratdi: ${escapeHtml(lead.addedBy)} · Mas'ul: ${escapeHtml(lead.assignedSalesName || '')}`;
     return `
     <div class="card" style="--stripe:${st.color}" data-id="${lead.id}">
       <div class="card-top">
@@ -1634,11 +1751,25 @@ function renderDetail(lead){
     ${lead.assignedSerialNumber ? `<div class="detail-label">Biriktirilgan seriya: ${escapeHtml(lead.assignedSerialNumber)}</div>` : ''}
     <div class="detail-label">Natija</div>
     <textarea data-role="comment-edit">${escapeHtml(lead.comment || '')}</textarea>
+    <div class="detail-label">Yaratdi: ${escapeHtml(lead.addedBy)} · Mas'ul: ${escapeHtml(lead.assignedSalesName || lead.addedBy)}</div>
+    ${lead.history && lead.history.length ? `
+      <div class="detail-label">Tarix</div>
+      <div style="max-height:120px; overflow-y:auto; margin-bottom:10px;">
+        ${lead.history.slice().reverse().map(h => `
+          <div class="mat-sub" style="margin-bottom:4px;">
+            ${new Date(h.ts).toLocaleString('uz-UZ', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})} —
+            ${escapeHtml(h.by)}: ${h.action === 'status' ? 'bosqich' : h.action === 'reassign' ? 'qayta biriktirish' : 'yaratildi'}
+            ${h.detail ? '(' + escapeHtml(h.detail) + ')' : ''}
+          </div>
+        `).join('')}
+      </div>
+    ` : ''}
     <div class="detail-actions">
       <button type="button" class="btn-small btn-save" data-action="save">Saqlash</button>
       <button type="button" class="btn-small" style="background:var(--surface-2); color:var(--text);" data-action="assign-serial">Seriya biriktirish</button>
     </div>
     <div class="detail-actions" style="margin-top:8px;">
+      <button type="button" class="btn-small" style="background:var(--surface-2); color:var(--text);" data-action="reassign">Qayta biriktirish</button>
       <button type="button" class="btn-small btn-delete" data-action="delete">O'chirish</button>
     </div>
   </div>`;
@@ -1695,6 +1826,15 @@ function attachDetailHandlers(){
       const id = card.dataset.id;
       const lead = leads.find(l => l.id === id);
       openAssignSerial(id, lead ? lead.product : '');
+    });
+  });
+
+  document.querySelectorAll('[data-action="reassign"]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const card = btn.closest('.card');
+      const id = card.dataset.id;
+      openReassignSheet(id);
     });
   });
 
