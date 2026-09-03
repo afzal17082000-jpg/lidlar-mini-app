@@ -293,6 +293,7 @@ app.post('/api/leads', async (req, res) => {
   const {
     name, phone, source, address, product, comment, leadDate,
     region, district, productCategory, productTier, productSize, consultationDate,
+    assignedSalesTelegramId, assignedSalesName,
   } = req.body || {};
   if (!name || !phone) return res.status(400).json({ error: "Ism va telefon raqami majburiy" });
   const employeeName = getEmployeeName(req);
@@ -308,6 +309,12 @@ app.post('/api/leads', async (req, res) => {
   }
 
   const initialStatus = consultationDate ? 'consultation' : 'lead';
+
+  // The person filling the form is always the creator, but the deal can be
+  // explicitly assigned to a different sales rep right away (e.g. an admin
+  // logging a lead on behalf of a specific salesperson).
+  const finalAssignedName = assignedSalesName || employeeName;
+  const finalAssignedTelegramId = assignedSalesTelegramId ? Number(assignedSalesTelegramId) : (user ? user.id : null);
 
   const lead = {
     id: uid(),
@@ -334,11 +341,11 @@ app.post('/api/leads', async (req, res) => {
     // these can diverge after a reassignment.
     addedBy: employeeName,
     createdByTelegramId: user ? user.id : null,
-    assignedSalesName: employeeName,
-    assignedSalesTelegramId: user ? user.id : null,
+    assignedSalesName: finalAssignedName,
+    assignedSalesTelegramId: finalAssignedTelegramId,
     updatedBy: employeeName,
     updatedAt: Date.now(),
-    responsibleTelegramId: user ? user.id : null,
+    responsibleTelegramId: finalAssignedTelegramId,
     history: [{ ts: Date.now(), by: employeeName, action: 'created', detail: '' }],
   };
   try {
@@ -825,6 +832,63 @@ app.get('/api/finance/pnl', attachEmployee, requireRole('admin', 'finance'), asy
       salesRevenue, otherIncome, cogs, opex, netProfit,
       dealsCount: wonDeals.length, serialsCount: soldSerials.length,
     });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Hisoblashda xatolik' });
+  }
+});
+
+// ================= Analytics (sales performance, dashboard overview) =================
+
+app.get('/api/analytics/sales', attachEmployee, requireRole('admin'), async (req, res) => {
+  try {
+    const leadsCol = await getLeadsCollection();
+    const leads = await leadsCol.find({}).toArray();
+
+    const byRep = {};
+    for (const lead of leads) {
+      const key = lead.assignedSalesTelegramId || lead.assignedSalesName || 'Noma\'lum';
+      if (!byRep[key]) {
+        byRep[key] = {
+          name: lead.assignedSalesName || "Noma'lum",
+          leadsCount: 0, consultationCount: 0, negotiationCount: 0,
+          contractCount: 0, productionCount: 0, closedWonCount: 0, closedLostCount: 0,
+          totalDealAmount: 0,
+        };
+      }
+      const rep = byRep[key];
+      rep.leadsCount += 1;
+      if (lead.status === 'consultation') rep.consultationCount += 1;
+      if (lead.status === 'negotiation') rep.negotiationCount += 1;
+      if (lead.status === 'contract') rep.contractCount += 1;
+      if (lead.status === 'production') rep.productionCount += 1;
+      if (lead.status === 'closed_won') { rep.closedWonCount += 1; rep.totalDealAmount += (lead.dealAmount || 0); }
+      if (lead.status === 'closed_lost') rep.closedLostCount += 1;
+    }
+
+    const result = Object.values(byRep).sort((a, b) => b.leadsCount - a.leadsCount);
+    res.json(result);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Hisoblashda xatolik' });
+  }
+});
+
+app.get('/api/analytics/overview', attachEmployee, requireRole('admin'), async (req, res) => {
+  try {
+    const leadsCol = await getLeadsCollection();
+    const materialsCol = await getMaterialsCollection();
+
+    const totalLeads = await leadsCol.countDocuments({});
+    const activeDeals = await leadsCol.countDocuments({ status: { $nin: ['closed_won', 'closed_lost'] } });
+    const closedWon = await leadsCol.countDocuments({ status: 'closed_won' });
+    const closedLost = await leadsCol.countDocuments({ status: 'closed_lost' });
+    const winRate = (closedWon + closedLost) > 0 ? Math.round((closedWon / (closedWon + closedLost)) * 100) : 0;
+
+    const materials = await materialsCol.find({}).toArray();
+    const stockAlerts = materials.filter(m => (m.qty || 0) <= (m.minStock || 0)).length;
+
+    res.json({ totalLeads, activeDeals, stockAlerts, winRate, closedWon, closedLost });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Hisoblashda xatolik' });
