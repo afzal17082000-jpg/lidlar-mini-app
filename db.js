@@ -45,9 +45,19 @@ async function getSerialsCollection() {
   return db.collection('serials');
 }
 
+async function getProductionItemsCollection() {
+  const db = await connect();
+  return db.collection('productionItems');
+}
+
 async function getFinanceCollection() {
   const db = await connect();
   return db.collection('finances');
+}
+
+async function getDebtsCollection() {
+  const db = await connect();
+  return db.collection('debts');
 }
 
 module.exports = {
@@ -57,5 +67,7 @@ module.exports = {
   getProductsCollection,
   getBomsCollection,
   getSerialsCollection,
+  getProductionItemsCollection,
   getFinanceCollection,
+  getDebtsCollection,
 };
