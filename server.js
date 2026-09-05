@@ -570,7 +570,7 @@ app.post('/api/materials', attachEmployee, requireRole('admin', 'warehouse_produ
 });
 
 app.post('/api/materials/:id/adjust', attachEmployee, requireRole('admin', 'warehouse_production'), async (req, res) => {
-  const { type, qty, note } = req.body || {};
+  const { type, qty, note, date } = req.body || {};
   const amount = Number(qty);
   if (!['in', 'out'].includes(type) || !amount || amount <= 0) {
     return res.status(400).json({ error: "Turi (kirim/chiqim) va miqdor to'g'ri kiritilishi kerak" });
@@ -584,13 +584,23 @@ app.post('/api/materials/:id/adjust', attachEmployee, requireRole('admin', 'ware
     const newQty = (material.qty || 0) + delta;
     if (newQty < 0) return res.status(400).json({ error: "Omborda yetarli miqdor yo'q" });
 
+    const employeeName = getEmployeeName(req);
+    const movement = {
+      type, qty: amount, note: note || '',
+      date: date || new Date().toISOString().slice(0, 10),
+      by: employeeName, ts: Date.now(),
+    };
+
     const updated = await col.findOneAndUpdate(
-      { id: req.params.id }, { $set: { qty: newQty, updatedAt: Date.now() } },
+      { id: req.params.id },
+      {
+        $set: { qty: newQty, updatedAt: Date.now() },
+        $push: { movements: { $each: [movement], $position: 0, $slice: 50 } },
+      },
       { returnDocument: 'after', projection: { _id: 0 } }
     );
     res.json(updated);
 
-    const employeeName = getEmployeeName(req);
     notifyGroup(
       `${type === 'in' ? '📥' : '📤'} <b>${type === 'in' ? 'Kirim' : 'Chiqim'}</b>\n${escapeHtmlServer(material.name)}: ${amount} ${escapeHtmlServer(material.unit)}\n` +
       (note ? `📝 ${escapeHtmlServer(note)}\n` : '') + `👤 ${escapeHtmlServer(employeeName)}\n📊 Qoldiq: ${newQty} ${escapeHtmlServer(material.unit)}`
@@ -826,6 +836,8 @@ app.patch('/api/production-items/:id', attachEmployee, requireRole('admin', 'war
       update.stageIndex = Math.max(0, Math.min(PRODUCTION_STAGES.length - 1, Number(req.body.stageIndex)));
     }
     if (typeof req.body.notes === 'string') update.notes = req.body.notes;
+    if (req.body.category && PRODUCT_CATALOG[req.body.category]) update.category = req.body.category;
+    if (req.body.size) update.size = Number(req.body.size);
 
     const employeeName = getEmployeeName(req);
     const reachedFinalStage = update.stageIndex === PRODUCTION_STAGES.length - 1;
@@ -892,6 +904,28 @@ app.get('/api/serials', attachEmployee, requireRole('admin', 'warehouse_producti
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Bazaga ulanishda xatolik' });
+  }
+});
+
+// Lets the Usta/admin correct a finished item's model, size, serial number, or notes.
+app.patch('/api/serials/:id', attachEmployee, requireRole('admin', 'warehouse_production'), async (req, res) => {
+  try {
+    const col = await getSerialsCollection();
+    const update = { updatedAt: Date.now() };
+    if (typeof req.body.productName === 'string') update.productName = req.body.productName;
+    if (typeof req.body.serialNumber === 'string') update.serialNumber = req.body.serialNumber;
+    if (typeof req.body.notes === 'string') update.notes = req.body.notes;
+
+    const updated = await col.findOneAndUpdate(
+      { id: req.params.id },
+      { $set: update },
+      { returnDocument: 'after', projection: { _id: 0 } }
+    );
+    if (!updated) return res.status(404).json({ error: 'Topilmadi' });
+    res.json(updated);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Yangilashda xatolik' });
   }
 });
 
