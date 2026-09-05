@@ -692,6 +692,7 @@
   <div class="nav-item hidden active" data-tab="dashboard" id="navDashboard"><span class="icon">🏠</span> Bosh sahifa</div>
   <div class="nav-item" data-tab="leads" id="navLeads"><span class="icon">📋</span> Sotuv</div>
   <div class="nav-item hidden" data-tab="catalog" id="navCatalog"><span class="icon">📖</span> Katalog</div>
+  <div class="nav-item hidden" data-tab="readystock" id="navReadystock"><span class="icon">✅</span> Tayyor mahsulotlar</div>
   <div class="nav-item hidden" data-tab="warehouse" id="navWarehouse"><span class="icon">📦</span> Ombor</div>
   <div class="nav-item hidden" data-tab="production" id="navProduction"><span class="icon">🏭</span> Ishlab chiqarish</div>
   <div class="nav-item hidden" data-tab="finance" id="navFinance"><span class="icon">💰</span> Moliya</div>
@@ -764,6 +765,33 @@
   <div class="list" id="catalogList" style="padding:0 16px;"></div>
 </div>
 
+<div class="tab-panel hidden" id="readyStockPanel">
+  <div class="detail-label" style="padding:0 16px;">Omborda tayyor turgan kotellar</div>
+  <div class="list" id="readyStockList" style="padding:0 16px;"></div>
+</div>
+
+<div class="sheet-overlay" id="editSerialOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Kotelni tahrirlash</h2>
+      <button class="sheet-close" id="editSerialClose">✕</button>
+    </div>
+    <div class="field">
+      <label>Model / nomi</label>
+      <input type="text" id="esName">
+    </div>
+    <div class="field">
+      <label>Seriya raqami</label>
+      <input type="text" id="esSerial">
+    </div>
+    <div class="field">
+      <label>Izoh</label>
+      <textarea id="esNotes"></textarea>
+    </div>
+    <button type="button" class="submit-btn" id="esSaveBtn">Saqlash</button>
+  </div>
+</div>
+
 <div class="tab-panel hidden" id="warehousePanel">
   <div class="searchbar" style="justify-content:flex-end;">
     <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 16px;" id="fabAddMaterial">+ Xomashyo qo'shish</button>
@@ -791,7 +819,7 @@
 <div class="sheet-overlay" id="prodItemSheetOverlay">
   <div class="sheet">
     <div class="sheet-head">
-      <h2>Yangi kotel (jarayonda)</h2>
+      <h2 id="prodItemSheetTitle">Yangi kotel (jarayonda)</h2>
       <button class="sheet-close" id="prodItemSheetClose">✕</button>
     </div>
     <div class="field">
@@ -810,6 +838,10 @@
         <button type="button" class="role-btn" data-size="400">400</button>
         <button type="button" class="role-btn" data-size="500">500</button>
       </div>
+    </div>
+    <div class="field" id="piStageField" style="display:none;">
+      <label>Bosqich (to'g'ridan-to'g'ri tanlash)</label>
+      <div class="role-grid" id="piStageGrid" style="grid-template-columns:1fr 1fr;"></div>
     </div>
     <div class="field">
       <label>Izoh</label>
@@ -1005,6 +1037,10 @@
     </div>
     <form id="adjustForm">
       <div class="field">
+        <label>Sana</label>
+        <input type="date" id="aDate">
+      </div>
+      <div class="field">
         <label>Miqdor *</label>
         <input type="number" id="aQty" placeholder="0" min="0" step="any" required>
       </div>
@@ -1014,6 +1050,8 @@
       </div>
       <button type="submit" class="submit-btn" id="adjustSubmitBtn">Tasdiqlash</button>
     </form>
+    <div class="detail-label" style="margin-top:16px;">So'nggi harakatlar</div>
+    <div id="movementsHistory" style="max-height:180px; overflow-y:auto;"></div>
   </div>
 </div>
 
@@ -1260,6 +1298,12 @@ const API = {
     if (!res.ok) throw new Error('serials failed');
     return res.json();
   },
+  async updateSerial(id, payload){
+    const res = await fetch('/api/serials/' + id, { method:'PATCH', headers: authHeaders(true), body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'update failed');
+    return data;
+  },
   async assignSerial(leadId, serialId){
     const res = await fetch('/api/leads/' + leadId + '/assign-serial', { method:'POST', headers: authHeaders(true), body: JSON.stringify({ serialId }) });
     const data = await res.json();
@@ -1443,7 +1487,7 @@ function renderGreeting(){
 }
 
 // ================= Sidebar navigation =================
-const PAGE_TITLES = { dashboard: 'Bosh sahifa', leads: 'Sotuv', catalog: 'Katalog', warehouse: 'Ombor', production: 'Ishlab chiqarish', finance: 'Moliya', debts: 'Qarzdorlik' };
+const PAGE_TITLES = { dashboard: 'Bosh sahifa', leads: 'Sotuv', catalog: 'Katalog', readystock: 'Tayyor mahsulotlar', warehouse: 'Ombor', production: 'Ishlab chiqarish', finance: 'Moliya', debts: 'Qarzdorlik' };
 
 function openSidebar(){
   document.getElementById('sidebar').classList.add('open');
@@ -1464,6 +1508,7 @@ function switchTab(tab){
   document.getElementById('dashboardPanel').classList.toggle('hidden', tab !== 'dashboard');
   document.getElementById('leadsPanel').classList.toggle('hidden', tab !== 'leads');
   document.getElementById('catalogPanel').classList.toggle('hidden', tab !== 'catalog');
+  document.getElementById('readyStockPanel').classList.toggle('hidden', tab !== 'readystock');
   document.getElementById('warehousePanel').classList.toggle('hidden', tab !== 'warehouse');
   document.getElementById('productionPanel').classList.toggle('hidden', tab !== 'production');
   document.getElementById('financePanel').classList.toggle('hidden', tab !== 'finance');
@@ -1473,6 +1518,7 @@ function switchTab(tab){
 
   if (tab === 'dashboard') loadDashboard();
   if (tab === 'catalog') loadCatalog();
+  if (tab === 'readystock') loadReadyStock();
   if (tab === 'warehouse') loadMaterials();
   if (tab === 'production') { loadProdItems(); loadProducts(); loadSerials(); }
   if (tab === 'finance') { loadFinance(); loadPnl(); }
@@ -1490,9 +1536,11 @@ function initTabs(){
   const showProduction = ['admin', 'warehouse_production'].includes(role);
   const showFinance = ['admin', 'finance'].includes(role);
   const showDebts = ['admin', 'finance', 'sales'].includes(role);
+  const showReadyStock = ['admin', 'sales', 'warehouse_production'].includes(role);
 
   document.getElementById('navDashboard').classList.toggle('hidden', !showDashboard);
   document.getElementById('navCatalog').classList.toggle('hidden', !showCatalog);
+  document.getElementById('navReadystock').classList.toggle('hidden', !showReadyStock);
   document.getElementById('navWarehouse').classList.toggle('hidden', !showWarehouse);
   document.getElementById('navProduction').classList.toggle('hidden', !showProduction);
   document.getElementById('navFinance').classList.toggle('hidden', !showFinance);
@@ -1798,7 +1846,7 @@ function renderProdItems(){
       <div class="prog-actions">
         <button type="button" class="prog-btn" data-action="prev" ${idx === 0 ? 'disabled style="opacity:.4;"' : ''}>← Oldingi</button>
         <button type="button" class="prog-btn" data-action="next" ${isLast ? 'disabled style="opacity:.4;"' : ''}>${isLast ? 'Tayyor ✓' : 'Keyingi bosqich →'}</button>
-        <button type="button" class="prog-btn" data-action="edit-notes">Izoh</button>
+        <button type="button" class="prog-btn" data-action="edit-full">Tahrirlash</button>
         <button type="button" class="prog-btn" data-action="delete" style="color:var(--danger);">O'chirish</button>
       </div>
     </div>`;
@@ -1810,6 +1858,11 @@ function renderProdItems(){
       const id = card.dataset.id;
       const item = prodItems.find(p => p.id === id);
       if (!item) return;
+
+      if (btn.dataset.action === 'edit-full') {
+        openProdItemSheet(item);
+        return;
+      }
 
       if (btn.dataset.action === 'delete') {
         const doDelete = async () => {
@@ -1858,12 +1911,46 @@ function renderProdItems(){
   });
 }
 
-document.getElementById('fabAddProdItem').addEventListener('click', () => {
-  piSelectedCategory = null;
-  piSelectedSize = null;
-  document.querySelectorAll('#piCategoryGrid .role-btn, #piSizeGrid .role-btn').forEach(b => b.classList.remove('selected'));
-  document.getElementById('piNotes').value = '';
+let piEditingId = null;
+
+function buildStageGrid(selectedIdx){
+  const grid = document.getElementById('piStageGrid');
+  grid.innerHTML = productionStages.map((name, idx) => `
+    <button type="button" class="role-btn ${idx === selectedIdx ? 'selected' : ''}" data-stage="${idx}" style="font-size:12px; padding:10px 6px;">
+      ${idx + 1}. ${escapeHtml(name)}
+    </button>
+  `).join('');
+  grid.querySelectorAll('.role-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      grid.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+    });
+  });
+}
+
+function openProdItemSheet(item){
+  piEditingId = item ? item.id : null;
+  piSelectedCategory = item ? item.category : null;
+  piSelectedSize = item ? String(item.size) : null;
+
+  document.getElementById('prodItemSheetTitle').textContent = item ? "Kotelni tahrirlash" : "Yangi kotel (jarayonda)";
+  document.querySelectorAll('#piCategoryGrid .role-btn').forEach(b => b.classList.toggle('selected', b.dataset.cat === piSelectedCategory));
+  document.querySelectorAll('#piSizeGrid .role-btn').forEach(b => b.classList.toggle('selected', b.dataset.size === piSelectedSize));
+  document.getElementById('piNotes').value = item ? (item.notes || '') : '';
+
+  const stageField = document.getElementById('piStageField');
+  if (item) {
+    stageField.style.display = 'block';
+    buildStageGrid(item.stageIndex || 0);
+  } else {
+    stageField.style.display = 'none';
+  }
+
   document.getElementById('prodItemSheetOverlay').classList.add('open');
+}
+
+document.getElementById('fabAddProdItem').addEventListener('click', () => {
+  openProdItemSheet(null);
 });
 document.getElementById('prodItemSheetClose').addEventListener('click', () => {
   document.getElementById('prodItemSheetOverlay').classList.remove('open');
@@ -1891,11 +1978,26 @@ document.getElementById('piSubmitBtn').addEventListener('click', async () => {
   const btn = document.getElementById('piSubmitBtn');
   btn.disabled = true;
   try {
-    const item = await API.createProdItem({ category: piSelectedCategory, size: piSelectedSize, notes });
-    prodItems.unshift(item);
+    if (piEditingId) {
+      const stageBtn = document.querySelector('#piStageGrid .role-btn.selected');
+      const stageIndex = stageBtn ? Number(stageBtn.dataset.stage) : undefined;
+      const updated = await API.updateProdItem(piEditingId, { category: piSelectedCategory, size: piSelectedSize, notes, stageIndex });
+      if (updated.status === 'completed') {
+        prodItems = prodItems.filter(p => p.id !== piEditingId);
+        showToast("Kotel tayyor bo'ldi! Seriya: " + updated.completedSerialNumber);
+        loadSerials();
+      } else {
+        const idx = prodItems.findIndex(p => p.id === piEditingId);
+        if (idx >= 0) prodItems[idx] = updated;
+      }
+      showToast('Saqlandi');
+    } else {
+      const item = await API.createProdItem({ category: piSelectedCategory, size: piSelectedSize, notes });
+      prodItems.unshift(item);
+      showToast("Qo'shildi");
+    }
     renderProdItems();
     document.getElementById('prodItemSheetOverlay').classList.remove('open');
-    showToast("Qo'shildi");
   } catch (e) {
     showToast(e.message || "Saqlab bo'lmadi", true);
   } finally {
@@ -1934,6 +2036,85 @@ function renderCatalog(){
   }).join('');
   list.innerHTML = html;
 }
+
+// ================= Ready stock (finished, unsold kotels) =================
+let readyStock = [];
+
+async function loadReadyStock(){
+  try {
+    readyStock = await API.serials('stock');
+    renderReadyStock();
+  } catch (e) {
+    showToast("Yuklab bo'lmadi", true);
+  }
+}
+
+function renderReadyStock(){
+  const list = document.getElementById('readyStockList');
+  const canEdit = ['admin', 'warehouse_production'].includes(currentEmployee.role);
+  if (!readyStock.length) {
+    list.innerHTML = `<div class="empty"><p>Hozircha tayyor kotel yo'q.</p></div>`;
+    return;
+  }
+  list.innerHTML = readyStock.map(s => `
+    <div class="mat-card" data-id="${s.id}">
+      <div class="mat-top">
+        <div>
+          <div class="mat-name">${escapeHtml(s.serialNumber)}</div>
+          <div class="mat-sub">${escapeHtml(s.productName)}</div>
+        </div>
+        <div class="mat-qty" style="color:var(--s-buyurtma);">Omborda</div>
+      </div>
+      ${s.notes ? `<div class="card-comment" style="margin-top:8px;">${escapeHtml(s.notes)}</div>` : ''}
+      ${canEdit ? `
+        <div class="mat-actions">
+          <button type="button" class="mat-btn" data-action="edit">Tahrirlash</button>
+        </div>
+      ` : ''}
+    </div>
+  `).join('');
+
+  if (canEdit) {
+    list.querySelectorAll('[data-action="edit"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.closest('.mat-card').dataset.id;
+        openEditSerial(id);
+      });
+    });
+  }
+}
+
+let editingSerialId = null;
+function openEditSerial(id){
+  const serial = readyStock.find(s => s.id === id) || serials.find(s => s.id === id);
+  if (!serial) return;
+  editingSerialId = id;
+  document.getElementById('esName').value = serial.productName || '';
+  document.getElementById('esSerial').value = serial.serialNumber || '';
+  document.getElementById('esNotes').value = serial.notes || '';
+  document.getElementById('editSerialOverlay').classList.add('open');
+}
+document.getElementById('editSerialClose').addEventListener('click', () => {
+  document.getElementById('editSerialOverlay').classList.remove('open');
+});
+document.getElementById('esSaveBtn').addEventListener('click', async () => {
+  const productName = document.getElementById('esName').value.trim();
+  const serialNumber = document.getElementById('esSerial').value.trim();
+  const notes = document.getElementById('esNotes').value.trim();
+  try {
+    const updated = await API.updateSerial(editingSerialId, { productName, serialNumber, notes });
+    const idx1 = readyStock.findIndex(s => s.id === editingSerialId);
+    if (idx1 >= 0) readyStock[idx1] = updated;
+    const idx2 = serials.findIndex(s => s.id === editingSerialId);
+    if (idx2 >= 0) serials[idx2] = updated;
+    renderReadyStock();
+    if (typeof renderSerials === 'function') renderSerials();
+    document.getElementById('editSerialOverlay').classList.remove('open');
+    showToast('Saqlandi');
+  } catch (e) {
+    showToast(e.message || "Saqlab bo'lmadi", true);
+  }
+});
 
 let financeEntries = [];
 
@@ -2333,9 +2514,24 @@ function openAdjustSheet(id, type){
   const material = materials.find(m => m.id === id);
   document.getElementById('adjustTitle').textContent =
     (type === 'in' ? 'Kirim: ' : 'Chiqim: ') + (material ? material.name : '');
+  document.getElementById('aDate').value = new Date().toISOString().slice(0, 10);
   document.getElementById('aQty').value = '';
   document.getElementById('aNote').value = '';
+  renderMovementsHistory(material);
   document.getElementById('adjustSheetOverlay').classList.add('open');
+}
+function renderMovementsHistory(material){
+  const el = document.getElementById('movementsHistory');
+  const movements = (material && material.movements) || [];
+  if (!movements.length) {
+    el.innerHTML = `<p style="color:var(--text-muted); font-size:12.5px;">Hali harakat yo'q.</p>`;
+    return;
+  }
+  el.innerHTML = movements.map(m => `
+    <div class="mat-sub" style="margin-bottom:6px;">
+      ${m.date} · ${m.type === 'in' ? '📥 Kirim' : '📤 Chiqim'}: ${m.qty} · ${escapeHtml(m.by)}${m.note ? ' · ' + escapeHtml(m.note) : ''}
+    </div>
+  `).join('');
 }
 document.getElementById('adjustSheetClose').addEventListener('click', () => {
   document.getElementById('adjustSheetOverlay').classList.remove('open');
@@ -2345,6 +2541,7 @@ document.getElementById('adjustSheetOverlay').addEventListener('click', (e) => {
 });
 document.getElementById('adjustForm').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const date = document.getElementById('aDate').value;
   const qty = document.getElementById('aQty').value;
   const note = document.getElementById('aNote').value.trim();
   if (!qty || Number(qty) <= 0) return;
@@ -2352,10 +2549,11 @@ document.getElementById('adjustForm').addEventListener('submit', async (e) => {
   btn.disabled = true;
   btn.textContent = 'Saqlanmoqda...';
   try {
-    const updated = await API.adjustMaterial(adjustContext.id, { type: adjustContext.type, qty, note });
+    const updated = await API.adjustMaterial(adjustContext.id, { type: adjustContext.type, qty, note, date });
     const idx = materials.findIndex(m => m.id === adjustContext.id);
     if (idx >= 0) materials[idx] = updated;
     renderMaterials();
+    renderMovementsHistory(updated);
     document.getElementById('adjustSheetOverlay').classList.remove('open');
     showToast('Saqlandi');
   } catch (err) {
