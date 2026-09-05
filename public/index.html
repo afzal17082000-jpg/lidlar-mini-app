@@ -309,6 +309,37 @@
   .mat-btn.in{color:var(--s-buyurtma);}
   .mat-btn.out{color:var(--danger);}
 
+  .prog-track{
+    width:100%;
+    height:8px;
+    border-radius:999px;
+    background:var(--surface-2);
+    overflow:hidden;
+    margin-top:8px;
+  }
+  .prog-fill{
+    height:100%;
+    background:var(--accent);
+    border-radius:999px;
+    transition:width .2s ease;
+  }
+  .prog-actions{
+    display:flex;
+    gap:6px;
+    margin-top:10px;
+    flex-wrap:wrap;
+  }
+  .prog-btn{
+    padding:7px 11px;
+    border-radius:9px;
+    border:1px solid var(--border);
+    background:var(--surface-2);
+    color:var(--text);
+    font-size:12.5px;
+    font-weight:700;
+    cursor:pointer;
+  }
+
   /* ---------- Main app ---------- */
   #app.hidden{display:none;}
 
@@ -664,6 +695,7 @@
   <div class="nav-item hidden" data-tab="warehouse" id="navWarehouse"><span class="icon">📦</span> Ombor</div>
   <div class="nav-item hidden" data-tab="production" id="navProduction"><span class="icon">🏭</span> Ishlab chiqarish</div>
   <div class="nav-item hidden" data-tab="finance" id="navFinance"><span class="icon">💰</span> Moliya</div>
+  <div class="nav-item hidden" data-tab="debts" id="navDebts"><span class="icon">📑</span> Qarzdorlik</div>
 
   <div class="sidebar-spacer"></div>
   <div class="sidebar-profile">
@@ -741,13 +773,50 @@
 
 <div class="tab-panel hidden" id="productionPanel">
   <div class="searchbar" style="justify-content:space-between; gap:8px;">
-    <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 14px; font-size:13px;" id="fabAddProduct">+ Mahsulot</button>
+    <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 14px; font-size:13px;" id="fabAddProdItem">+ Yangi kotel (jarayonda)</button>
+  </div>
+  <div class="detail-label" style="padding:0 16px; margin-top:10px;">Tayyorlanayotgan kotellar</div>
+  <div class="list" id="prodItemsList" style="padding:0 16px;"></div>
+
+  <div class="searchbar" style="justify-content:space-between; gap:8px; margin-top:10px;" id="advancedProductionBar">
+    <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 14px; font-size:13px;" id="fabAddProduct">+ Mahsulot (BOM)</button>
     <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 14px; font-size:13px; background:var(--surface-2); color:var(--text);" id="downloadWarehouseExcel">📊 Ombor Excel</button>
   </div>
-  <div class="detail-label" style="padding:0 16px; margin-top:10px;">Mahsulotlar va yig'ish</div>
+  <div class="detail-label" style="padding:0 16px; margin-top:10px;" id="advancedProductionLabel">Mahsulotlar va yig'ish (retseptura orqali)</div>
   <div class="list" id="productsList" style="padding:0 16px;"></div>
   <div class="detail-label" style="padding:0 16px; margin-top:16px;">Tayyor mahsulotlar (seriyalar)</div>
   <div class="list" id="serialsList" style="padding:0 16px;"></div>
+</div>
+
+<div class="sheet-overlay" id="prodItemSheetOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Yangi kotel (jarayonda)</h2>
+      <button class="sheet-close" id="prodItemSheetClose">✕</button>
+    </div>
+    <div class="field">
+      <label>Turi</label>
+      <div class="role-grid" id="piCategoryGrid">
+        <button type="button" class="role-btn" data-cat="bunkerlik">Bunkerlik</button>
+        <button type="button" class="role-btn" data-cat="bunkersiz">Bunkersiz</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Kvadratura</label>
+      <div class="role-grid" id="piSizeGrid" style="grid-template-columns:repeat(5,1fr);">
+        <button type="button" class="role-btn" data-size="150">150</button>
+        <button type="button" class="role-btn" data-size="200">200</button>
+        <button type="button" class="role-btn" data-size="300">300</button>
+        <button type="button" class="role-btn" data-size="400">400</button>
+        <button type="button" class="role-btn" data-size="500">500</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Izoh</label>
+      <textarea id="piNotes" placeholder="Yetishmayotgan qismlar, holat..."></textarea>
+    </div>
+    <button type="button" class="submit-btn" id="piSubmitBtn">Saqlash</button>
+  </div>
 </div>
 
 <div class="tab-panel hidden" id="financePanel">
@@ -758,6 +827,67 @@
   <div class="mat-card" id="pnlCard" style="margin:0 16px 14px;"></div>
   <div class="detail-label" style="padding:0 16px;">Yozuvlar tarixi</div>
   <div class="list" id="financeList" style="padding:0 16px;"></div>
+</div>
+
+<div class="tab-panel hidden" id="debtsPanel">
+  <div class="searchbar" style="justify-content:space-between; gap:8px;">
+    <button type="button" class="tab-btn active" style="flex:1;" id="debtsTabDebitor" data-debttype="debitor">Debitorlik</button>
+    <button type="button" class="tab-btn" style="flex:1;" id="debtsTabKreditor" data-debttype="kreditor">Kreditorlik</button>
+  </div>
+  <div class="searchbar" style="justify-content:flex-end;" id="addDebtBar">
+    <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 16px;" id="fabAddDebt">+ Qo'shish</button>
+  </div>
+  <div class="list" id="debtsList" style="padding:0 16px;"></div>
+</div>
+
+<div class="sheet-overlay" id="debtSheetOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2 id="debtSheetTitle">Yangi qarz</h2>
+      <button class="sheet-close" id="debtSheetClose">✕</button>
+    </div>
+    <form id="debtForm">
+      <div class="field">
+        <label id="debtNameLabel">Mijoz F.I.Sh</label>
+        <input type="text" id="dName" required>
+      </div>
+      <div class="field">
+        <label>Telefon</label>
+        <input type="tel" id="dPhone">
+      </div>
+      <div class="field" id="debtItemField" style="display:none;">
+        <label>Olingan xomashyo/tovar</label>
+        <input type="text" id="dItem">
+      </div>
+      <div class="field">
+        <label>Bitim summasi</label>
+        <input type="number" id="dAmount" min="0" step="any" required>
+      </div>
+      <div class="field">
+        <label>Avans (to'langan)</label>
+        <input type="number" id="dAdvance" min="0" step="any">
+      </div>
+      <div class="field">
+        <label>Muddat (deadline)</label>
+        <input type="date" id="dDeadline">
+      </div>
+      <button type="submit" class="submit-btn" id="debtSubmitBtn">Saqlash</button>
+    </form>
+  </div>
+</div>
+
+<div class="sheet-overlay" id="paymentSheetOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>To'lov kiritish</h2>
+      <button class="sheet-close" id="paymentSheetClose">✕</button>
+    </div>
+    <div class="field">
+      <label>To'lov summasi</label>
+      <input type="number" id="payAmount" min="0" step="any">
+    </div>
+    <button type="button" class="submit-btn" id="paySubmitBtn">Tasdiqlash</button>
+  </div>
 </div>
 
 <div class="sheet-overlay" id="sheetOverlay">
@@ -853,6 +983,10 @@
       <div class="field">
         <label>Minimal me'yor (ogohlantirish uchun)</label>
         <input type="number" id="mMinStock" placeholder="0" min="0" step="any">
+      </div>
+      <div class="field">
+        <label>Maksimal me'yor</label>
+        <input type="number" id="mMaxStock" placeholder="0" min="0" step="any">
       </div>
       <div class="field">
         <label>Xarid narxi (birlik uchun)</label>
@@ -991,13 +1125,14 @@ if (tg) { tg.ready(); tg.expand(); }
 
 // ---------- Statuses (sales funnel) ----------
 const STATUSES = [
-  { id: 'lead',          label: "Yangi lid",         color: 'var(--s-yangi)' },
-  { id: 'consultation',  label: "Konsultatsiya",     color: 'var(--s-boglanildi)' },
-  { id: 'negotiation',   label: "Muzokarada",        color: 'var(--s-muzokara)' },
-  { id: 'contract',      label: "Shartnoma",         color: '#8B7FD9' },
-  { id: 'production',    label: "Ishlab chiqarish",  color: 'var(--s-followup)' },
-  { id: 'closed_won',    label: "Sotildi",           color: 'var(--s-buyurtma)' },
-  { id: 'closed_lost',   label: "Otkaz",             color: 'var(--danger)' },
+  { id: 'lead',          label: "Yangi lid",           color: 'var(--s-yangi)' },
+  { id: 'consultation',  label: "Konsultatsiya",       color: 'var(--s-boglanildi)' },
+  { id: 'negotiation',   label: "Muzokarada",          color: 'var(--s-muzokara)' },
+  { id: 'showroom',      label: "Shourumga kelaman",   color: '#E07BC7' },
+  { id: 'contract',      label: "Shartnoma",           color: '#8B7FD9' },
+  { id: 'production',    label: "Ishlab chiqarish",    color: 'var(--s-followup)' },
+  { id: 'closed_won',    label: "Sotildi",             color: 'var(--s-buyurtma)' },
+  { id: 'closed_lost',   label: "Otkaz",               color: 'var(--danger)' },
 ];
 const statusById = Object.fromEntries(STATUSES.map(s => [s.id, s]));
 
@@ -1092,6 +1227,33 @@ const API = {
     if (!res.ok) throw new Error(data.error || 'assemble failed');
     return data;
   },
+  async prodItems(){
+    const res = await fetch('/api/production-items', { headers: authHeaders() });
+    if (!res.ok) throw new Error('prodItems failed');
+    return res.json();
+  },
+  async productionStages(){
+    const res = await fetch('/api/production-stages', { headers: authHeaders() });
+    if (!res.ok) throw new Error('stages failed');
+    return res.json();
+  },
+  async createProdItem(payload){
+    const res = await fetch('/api/production-items', { method:'POST', headers: authHeaders(true), body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'create failed');
+    return data;
+  },
+  async updateProdItem(id, payload){
+    const res = await fetch('/api/production-items/' + id, { method:'PATCH', headers: authHeaders(true), body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'update failed');
+    return data;
+  },
+  async removeProdItem(id){
+    const res = await fetch('/api/production-items/' + id, { method:'DELETE', headers: authHeaders() });
+    if (!res.ok) throw new Error('delete failed');
+    return res.json();
+  },
   async serials(status){
     const url = status ? '/api/serials?status=' + status : '/api/serials';
     const res = await fetch(url, { headers: authHeaders() });
@@ -1123,6 +1285,29 @@ const API = {
   async pnl(){
     const res = await fetch('/api/finance/pnl', { headers: authHeaders() });
     if (!res.ok) throw new Error('pnl failed');
+    return res.json();
+  },
+  async debts(type){
+    const url = type ? '/api/debts?type=' + type : '/api/debts';
+    const res = await fetch(url, { headers: authHeaders() });
+    if (!res.ok) throw new Error('debts failed');
+    return res.json();
+  },
+  async createDebt(payload){
+    const res = await fetch('/api/debts', { method:'POST', headers: authHeaders(true), body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'create failed');
+    return data;
+  },
+  async updateDebt(id, payload){
+    const res = await fetch('/api/debts/' + id, { method:'PATCH', headers: authHeaders(true), body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'update failed');
+    return data;
+  },
+  async removeDebt(id){
+    const res = await fetch('/api/debts/' + id, { method:'DELETE', headers: authHeaders() });
+    if (!res.ok) throw new Error('delete failed');
     return res.json();
   },
   async catalog(){
@@ -1258,7 +1443,7 @@ function renderGreeting(){
 }
 
 // ================= Sidebar navigation =================
-const PAGE_TITLES = { dashboard: 'Bosh sahifa', leads: 'Sotuv', catalog: 'Katalog', warehouse: 'Ombor', production: 'Ishlab chiqarish', finance: 'Moliya' };
+const PAGE_TITLES = { dashboard: 'Bosh sahifa', leads: 'Sotuv', catalog: 'Katalog', warehouse: 'Ombor', production: 'Ishlab chiqarish', finance: 'Moliya', debts: 'Qarzdorlik' };
 
 function openSidebar(){
   document.getElementById('sidebar').classList.add('open');
@@ -1282,14 +1467,16 @@ function switchTab(tab){
   document.getElementById('warehousePanel').classList.toggle('hidden', tab !== 'warehouse');
   document.getElementById('productionPanel').classList.toggle('hidden', tab !== 'production');
   document.getElementById('financePanel').classList.toggle('hidden', tab !== 'finance');
+  document.getElementById('debtsPanel').classList.toggle('hidden', tab !== 'debts');
   document.getElementById('fabAdd').classList.toggle('hidden', tab !== 'leads');
   document.getElementById('pageTitle').textContent = PAGE_TITLES[tab] || 'Lidlar';
 
   if (tab === 'dashboard') loadDashboard();
   if (tab === 'catalog') loadCatalog();
   if (tab === 'warehouse') loadMaterials();
-  if (tab === 'production') { loadProducts(); loadSerials(); }
+  if (tab === 'production') { loadProdItems(); loadProducts(); loadSerials(); }
   if (tab === 'finance') { loadFinance(); loadPnl(); }
+  if (tab === 'debts') loadDebts();
 
   closeSidebar();
 }
@@ -1302,12 +1489,25 @@ function initTabs(){
   const showWarehouse = ['admin', 'warehouse_production'].includes(role);
   const showProduction = ['admin', 'warehouse_production'].includes(role);
   const showFinance = ['admin', 'finance'].includes(role);
+  const showDebts = ['admin', 'finance', 'sales'].includes(role);
 
   document.getElementById('navDashboard').classList.toggle('hidden', !showDashboard);
   document.getElementById('navCatalog').classList.toggle('hidden', !showCatalog);
   document.getElementById('navWarehouse').classList.toggle('hidden', !showWarehouse);
   document.getElementById('navProduction').classList.toggle('hidden', !showProduction);
   document.getElementById('navFinance').classList.toggle('hidden', !showFinance);
+  document.getElementById('navDebts').classList.toggle('hidden', !showDebts);
+
+  // Salespeople only see their own customers' debitor debts — no kreditor tab, no add button.
+  document.getElementById('debtsTabKreditor').classList.toggle('hidden', role === 'sales');
+  document.getElementById('addDebtBar').classList.toggle('hidden', role === 'sales');
+
+  // Usta/Omborchi gets a simplified production view: no BOM/recipe management,
+  // no prices — only the WIP tracker with completion percentage.
+  const isWarehouseOnly = role === 'warehouse_production';
+  document.getElementById('advancedProductionBar').classList.toggle('hidden', isWarehouseOnly);
+  document.getElementById('advancedProductionLabel').classList.toggle('hidden', isWarehouseOnly);
+  document.getElementById('productsList').classList.toggle('hidden', isWarehouseOnly);
 
   document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', () => {
@@ -1545,6 +1745,164 @@ document.getElementById('downloadWarehouseExcel').addEventListener('click', () =
   window.open('/api/reports/warehouse/excel?tgid=' + (tg?.initDataUnsafe?.user?.id || ''), '_blank');
 });
 
+// ================= Production items (simple WIP tracker) =================
+let prodItems = [];
+let piSelectedCategory = null;
+let piSelectedSize = null;
+
+async function loadProdItems(){
+  try {
+    await ensureStagesLoaded();
+    prodItems = await API.prodItems();
+    renderProdItems();
+  } catch (e) {
+    showToast("Yuklab bo'lmadi", true);
+  }
+}
+
+const CATEGORY_LABELS = { bunkerlik: "Bunkerlik", bunkersiz: "Bunkersiz" };
+let productionStages = [];
+
+async function ensureStagesLoaded(){
+  if (productionStages.length) return;
+  try {
+    productionStages = await API.productionStages();
+  } catch (e) {
+    productionStages = [];
+  }
+}
+
+function renderProdItems(){
+  const list = document.getElementById('prodItemsList');
+  if (!prodItems.length) {
+    list.innerHTML = `<div class="empty"><p>Hozircha jarayondagi kotel yo'q.</p></div>`;
+    return;
+  }
+  const total = productionStages.length || 9;
+  list.innerHTML = prodItems.map(item => {
+    const idx = item.stageIndex || 0;
+    const stageName = productionStages[idx] || `Bosqich ${idx + 1}`;
+    const pct = Math.round(((idx + 1) / total) * 100);
+    const isLast = idx >= total - 1;
+    return `
+    <div class="mat-card" data-id="${item.id}">
+      <div class="mat-top">
+        <div>
+          <div class="mat-name">${escapeHtml(CATEGORY_LABELS[item.category] || item.category)} ${item.size} kv</div>
+          <div class="mat-sub">${escapeHtml(item.assignedWorker)} · Bosqich ${idx + 1}/${total}</div>
+        </div>
+        <div class="mat-qty">${escapeHtml(stageName)}</div>
+      </div>
+      <div class="prog-track"><div class="prog-fill" style="width:${pct}%;"></div></div>
+      ${item.notes ? `<div class="card-comment" style="margin-top:8px;">${escapeHtml(item.notes)}</div>` : ''}
+      <div class="prog-actions">
+        <button type="button" class="prog-btn" data-action="prev" ${idx === 0 ? 'disabled style="opacity:.4;"' : ''}>← Oldingi</button>
+        <button type="button" class="prog-btn" data-action="next" ${isLast ? 'disabled style="opacity:.4;"' : ''}>${isLast ? 'Tayyor ✓' : 'Keyingi bosqich →'}</button>
+        <button type="button" class="prog-btn" data-action="edit-notes">Izoh</button>
+        <button type="button" class="prog-btn" data-action="delete" style="color:var(--danger);">O'chirish</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.prog-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const card = btn.closest('.mat-card');
+      const id = card.dataset.id;
+      const item = prodItems.find(p => p.id === id);
+      if (!item) return;
+
+      if (btn.dataset.action === 'delete') {
+        const doDelete = async () => {
+          try {
+            await API.removeProdItem(id);
+            prodItems = prodItems.filter(p => p.id !== id);
+            renderProdItems();
+            showToast("O'chirildi");
+          } catch (e) { showToast("O'chirib bo'lmadi", true); }
+        };
+        if (tg && tg.showConfirm) tg.showConfirm("O'chirmoqchimisiz?", (ok) => { if (ok) doDelete(); });
+        else if (confirm("O'chirmoqchimisiz?")) doDelete();
+        return;
+      }
+
+      if (btn.dataset.action === 'edit-notes') {
+        const newNotes = prompt("Izoh:", item.notes || '');
+        if (newNotes === null) return;
+        try {
+          const updated = await API.updateProdItem(id, { notes: newNotes });
+          Object.assign(item, updated);
+          renderProdItems();
+        } catch (e) { showToast("Saqlab bo'lmadi", true); }
+        return;
+      }
+
+      const total = productionStages.length || 9;
+      let newIdx = item.stageIndex || 0;
+      if (btn.dataset.action === 'next') newIdx = Math.min(total - 1, newIdx + 1);
+      if (btn.dataset.action === 'prev') newIdx = Math.max(0, newIdx - 1);
+
+      try {
+        const updated = await API.updateProdItem(id, { stageIndex: newIdx });
+        if (updated.status === 'completed') {
+          prodItems = prodItems.filter(p => p.id !== id);
+          showToast("Kotel tayyor bo'ldi! Seriya: " + updated.completedSerialNumber);
+          loadSerials();
+        } else {
+          Object.assign(item, updated);
+        }
+        renderProdItems();
+      } catch (e) {
+        showToast("Saqlab bo'lmadi", true);
+      }
+    });
+  });
+}
+
+document.getElementById('fabAddProdItem').addEventListener('click', () => {
+  piSelectedCategory = null;
+  piSelectedSize = null;
+  document.querySelectorAll('#piCategoryGrid .role-btn, #piSizeGrid .role-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('piNotes').value = '';
+  document.getElementById('prodItemSheetOverlay').classList.add('open');
+});
+document.getElementById('prodItemSheetClose').addEventListener('click', () => {
+  document.getElementById('prodItemSheetOverlay').classList.remove('open');
+});
+document.getElementById('piCategoryGrid').querySelectorAll('.role-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    piSelectedCategory = btn.dataset.cat;
+    document.querySelectorAll('#piCategoryGrid .role-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+  });
+});
+document.getElementById('piSizeGrid').querySelectorAll('.role-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    piSelectedSize = btn.dataset.size;
+    document.querySelectorAll('#piSizeGrid .role-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+  });
+});
+document.getElementById('piSubmitBtn').addEventListener('click', async () => {
+  if (!piSelectedCategory || !piSelectedSize) {
+    showToast("Turi va razmerni tanlang", true);
+    return;
+  }
+  const notes = document.getElementById('piNotes').value.trim();
+  const btn = document.getElementById('piSubmitBtn');
+  btn.disabled = true;
+  try {
+    const item = await API.createProdItem({ category: piSelectedCategory, size: piSelectedSize, notes });
+    prodItems.unshift(item);
+    renderProdItems();
+    document.getElementById('prodItemSheetOverlay').classList.remove('open');
+    showToast("Qo'shildi");
+  } catch (e) {
+    showToast(e.message || "Saqlab bo'lmadi", true);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 // ================= Finance =================
 // ================= Catalog (knowledge base for sales) =================
 let catalogData = null;
@@ -1684,6 +2042,144 @@ document.getElementById('downloadFinanceExcel').addEventListener('click', () => 
   window.open('/api/reports/finance/excel', '_blank');
 });
 
+// ================= Debts (Debitor / Kreditor) =================
+let debts = [];
+let activeDebtType = 'debitor';
+
+async function loadDebts(){
+  try {
+    debts = await API.debts(currentEmployee.role === 'sales' ? 'debitor' : activeDebtType);
+    renderDebts();
+  } catch (e) {
+    showToast("Yuklab bo'lmadi", true);
+  }
+}
+
+document.getElementById('debtsTabDebitor').addEventListener('click', () => {
+  activeDebtType = 'debitor';
+  document.getElementById('debtsTabDebitor').classList.add('active');
+  document.getElementById('debtsTabKreditor').classList.remove('active');
+  loadDebts();
+});
+document.getElementById('debtsTabKreditor').addEventListener('click', () => {
+  activeDebtType = 'kreditor';
+  document.getElementById('debtsTabKreditor').classList.add('active');
+  document.getElementById('debtsTabDebitor').classList.remove('active');
+  loadDebts();
+});
+
+const DEBT_STATUS_LABELS = { pending: "Kutilmoqda", overdue: "Muddati o'tgan", paid: "To'landi" };
+const DEBT_STATUS_COLORS = { pending: 'var(--s-muzokara)', overdue: 'var(--danger)', paid: 'var(--s-buyurtma)' };
+
+function renderDebts(){
+  const list = document.getElementById('debtsList');
+  if (!debts.length) {
+    list.innerHTML = `<div class="empty"><p>Hozircha qarz yozuvi yo'q.</p></div>`;
+    return;
+  }
+  list.innerHTML = debts.map(d => `
+    <div class="mat-card" data-id="${d.id}">
+      <div class="mat-top">
+        <div>
+          <div class="mat-name">${escapeHtml(d.name)}</div>
+          <div class="mat-sub">${d.phone ? escapeHtml(d.phone) + ' · ' : ''}${d.deadline ? 'Muddat: ' + escapeHtml(d.deadline) : 'Muddatsiz'}</div>
+        </div>
+        <div class="mat-qty" style="color:${DEBT_STATUS_COLORS[d.status]}">${DEBT_STATUS_LABELS[d.status] || d.status}</div>
+      </div>
+      <div class="card-extra" style="margin-top:8px;">
+        <span>💰 Summa: ${d.dealAmount.toLocaleString()}</span>
+        <span>✅ To'landi: ${d.advance.toLocaleString()}</span>
+        <span>🔴 Qoldiq: ${d.remainingAmount.toLocaleString()}</span>
+      </div>
+      ${d.status !== 'paid' && currentEmployee.role !== 'sales' ? `
+        <div class="mat-actions">
+          <button type="button" class="mat-btn in" data-action="pay">To'lov kiritish</button>
+          <button type="button" class="mat-btn out" data-action="delete">O'chirish</button>
+        </div>
+      ` : ''}
+    </div>
+  `).join('');
+
+  list.querySelectorAll('.mat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.closest('.mat-card').dataset.id;
+      if (btn.dataset.action === 'pay') {
+        openPaymentSheet(id);
+      } else if (btn.dataset.action === 'delete') {
+        const doDelete = async () => {
+          try {
+            await API.removeDebt(id);
+            debts = debts.filter(d => d.id !== id);
+            renderDebts();
+            showToast("O'chirildi");
+          } catch (e) { showToast("O'chirib bo'lmadi", true); }
+        };
+        if (tg && tg.showConfirm) tg.showConfirm("O'chirmoqchimisiz?", (ok) => { if (ok) doDelete(); });
+        else if (confirm("O'chirmoqchimisiz?")) doDelete();
+      }
+    });
+  });
+}
+
+document.getElementById('fabAddDebt').addEventListener('click', () => {
+  document.getElementById('debtForm').reset();
+  const isDebitor = activeDebtType === 'debitor';
+  document.getElementById('debtSheetTitle').textContent = isDebitor ? 'Yangi debitorlik' : 'Yangi kreditorlik';
+  document.getElementById('debtNameLabel').textContent = isDebitor ? 'Mijoz F.I.Sh' : "Ta'minotchi nomi";
+  document.getElementById('debtItemField').style.display = isDebitor ? 'none' : 'block';
+  document.getElementById('debtSheetOverlay').classList.add('open');
+});
+document.getElementById('debtSheetClose').addEventListener('click', () => {
+  document.getElementById('debtSheetOverlay').classList.remove('open');
+});
+document.getElementById('debtForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = document.getElementById('dName').value.trim();
+  const phone = document.getElementById('dPhone').value.trim();
+  const supplierItem = document.getElementById('dItem').value.trim();
+  const dealAmount = document.getElementById('dAmount').value;
+  const advance = document.getElementById('dAdvance').value || 0;
+  const deadline = document.getElementById('dDeadline').value;
+  if (!name || !dealAmount) return;
+  const btn = document.getElementById('debtSubmitBtn');
+  btn.disabled = true;
+  try {
+    const debt = await API.createDebt({ type: activeDebtType, name, phone, supplierItem, dealAmount, advance, deadline });
+    debts.unshift(debt);
+    renderDebts();
+    document.getElementById('debtSheetOverlay').classList.remove('open');
+    showToast("Qo'shildi");
+  } catch (err) {
+    showToast(err.message || "Saqlab bo'lmadi", true);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+let paymentDebtId = null;
+function openPaymentSheet(id){
+  paymentDebtId = id;
+  document.getElementById('payAmount').value = '';
+  document.getElementById('paymentSheetOverlay').classList.add('open');
+}
+document.getElementById('paymentSheetClose').addEventListener('click', () => {
+  document.getElementById('paymentSheetOverlay').classList.remove('open');
+});
+document.getElementById('paySubmitBtn').addEventListener('click', async () => {
+  const payment = document.getElementById('payAmount').value;
+  if (!payment || Number(payment) <= 0) return;
+  try {
+    const updated = await API.updateDebt(paymentDebtId, { payment });
+    const idx = debts.findIndex(d => d.id === paymentDebtId);
+    if (idx >= 0) debts[idx] = updated;
+    renderDebts();
+    document.getElementById('paymentSheetOverlay').classList.remove('open');
+    showToast("To'lov qayd etildi");
+  } catch (e) {
+    showToast("Saqlab bo'lmadi", true);
+  }
+});
+
 // ================= Serial assignment (sales) =================
 async function openAssignSerial(leadId, productName){
   try {
@@ -1791,7 +2287,7 @@ function renderMaterials(){
       <div class="mat-top">
         <div>
           <div class="mat-name">${escapeHtml(m.name)}</div>
-          <div class="mat-sub">Min: ${m.minStock} ${escapeHtml(m.unit)} · Narx: ${m.purchasePrice}</div>
+          <div class="mat-sub">Min: ${m.minStock} · Max: ${m.maxStock || 0} ${escapeHtml(m.unit)} · Narx: ${m.purchasePrice}</div>
         </div>
         <div class="mat-qty ${low ? 'low' : ''}">${m.qty} ${escapeHtml(m.unit)}</div>
       </div>
@@ -1885,13 +2381,14 @@ document.getElementById('materialForm').addEventListener('submit', async (e) => 
   const unit = document.getElementById('mUnit').value.trim();
   const qty = document.getElementById('mQty').value || 0;
   const minStock = document.getElementById('mMinStock').value || 0;
+  const maxStock = document.getElementById('mMaxStock').value || 0;
   const purchasePrice = document.getElementById('mPrice').value || 0;
   if (!name || !unit) return;
   const btn = document.getElementById('materialSubmitBtn');
   btn.disabled = true;
   btn.textContent = 'Saqlanmoqda...';
   try {
-    const material = await API.createMaterial({ name, unit, qty, minStock, purchasePrice });
+    const material = await API.createMaterial({ name, unit, qty, minStock, maxStock, purchasePrice });
     materials.push(material);
     materials.sort((a, b) => a.name.localeCompare(b.name));
     renderMaterials();
