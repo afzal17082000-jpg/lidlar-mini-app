@@ -10,7 +10,9 @@ const {
   getProductsCollection,
   getBomsCollection,
   getSerialsCollection,
+  getProductionItemsCollection,
   getFinanceCollection,
+  getDebtsCollection,
 } = require('./db');
 
 const app = express();
@@ -91,6 +93,12 @@ function uid(prefix) {
   return (prefix || 'l') + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
+async function nextSerialNumber(serialsCol) {
+  const year = new Date().getFullYear();
+  const countThisYear = await serialsCol.countDocuments({ serialNumber: { $regex: `^#SB-${year}-` } });
+  return `#SB-${year}-${String(countThisYear + 1).padStart(4, '0')}`;
+}
+
 function escapeHtmlServer(str) {
   return String(str || '')
     .replace(/&/g, '&amp;')
@@ -121,6 +129,7 @@ const STATUS_LABELS = {
   lead: "Yangi lid",
   consultation: "Konsultatsiya",
   negotiation: "Muzokarada",
+  showroom: "Shourumga kelaman",
   contract: "Shartnoma",
   production: "Ishlab chiqarish",
   closed_won: "Sotildi",
@@ -541,11 +550,12 @@ app.get('/api/materials', attachEmployee, requireRole('admin', 'warehouse_produc
 });
 
 app.post('/api/materials', attachEmployee, requireRole('admin', 'warehouse_production'), async (req, res) => {
-  const { name, unit, qty, minStock, purchasePrice } = req.body || {};
+  const { name, unit, qty, minStock, maxStock, purchasePrice } = req.body || {};
   if (!name || !unit) return res.status(400).json({ error: "Nomi va o'lchov birligi majburiy" });
   const material = {
     id: uid('m'), name: String(name).trim(), unit: String(unit).trim(),
-    qty: Number(qty) || 0, minStock: Number(minStock) || 0, purchasePrice: Number(purchasePrice) || 0,
+    qty: Number(qty) || 0, minStock: Number(minStock) || 0, maxStock: Number(maxStock) || 0,
+    purchasePrice: Number(purchasePrice) || 0,
     createdAt: Date.now(), updatedAt: Date.now(),
   };
   try {
@@ -722,9 +732,7 @@ app.post('/api/production/assemble', attachEmployee, requireRole('admin', 'wareh
       }
     }
 
-    const year = new Date().getFullYear();
-    const countThisYear = await serialsCol.countDocuments({ serialNumber: { $regex: `^#SB-${year}-` } });
-    const serialNumber = `#SB-${year}-${String(countThisYear + 1).padStart(4, '0')}`;
+    const serialNumber = await nextSerialNumber(serialsCol);
     const employeeName = getEmployeeName(req);
 
     const serial = {
@@ -746,6 +754,130 @@ app.post('/api/production/assemble', attachEmployee, requireRole('admin', 'wareh
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: "Yig'ishda xatolik" });
+  }
+});
+
+// ================= Production items (9-stage pipeline for the Usta) =================
+// The Usta moves each kotel through a fixed sequence of production stages.
+// Reaching the final stage automatically converts it into a finished-goods serial.
+
+const PRODUCTION_STAGES = [
+  "Lazer jarayonida",
+  "Bukish jarayonida",
+  "Perexvatka",
+  "Quyish",
+  "Tekshiruv / Laboratoriya",
+  "Eshikni o'rnatish",
+  "Yig'uv",
+  "Bo'yoq (Krashtesh)",
+  "Tayyor",
+];
+
+app.get('/api/production-stages', attachEmployee, requireRole('admin', 'warehouse_production'), (req, res) => {
+  res.json(PRODUCTION_STAGES);
+});
+
+app.get('/api/production-items', attachEmployee, requireRole('admin', 'warehouse_production'), async (req, res) => {
+  try {
+    const col = await getProductionItemsCollection();
+    const items = await col.find({ status: { $ne: 'completed' } }, { projection: { _id: 0 } }).sort({ createdAt: -1 }).toArray();
+    res.json(items);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Bazaga ulanishda xatolik' });
+  }
+});
+
+app.post('/api/production-items', attachEmployee, requireRole('admin', 'warehouse_production'), async (req, res) => {
+  const { category, size, notes } = req.body || {};
+  if (!category || !PRODUCT_CATALOG[category] || !size) {
+    return res.status(400).json({ error: "Turi va razmer to'g'ri kiritilishi kerak" });
+  }
+  const employeeName = getEmployeeName(req);
+  const item = {
+    id: uid('pi'),
+    category,
+    size: Number(size),
+    stageIndex: 0,
+    notes: notes || '',
+    status: 'in_progress',
+    assignedWorker: employeeName,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+  try {
+    const col = await getProductionItemsCollection();
+    await col.insertOne({ ...item });
+    res.json(item);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Saqlashda xatolik' });
+  }
+});
+
+app.patch('/api/production-items/:id', attachEmployee, requireRole('admin', 'warehouse_production'), async (req, res) => {
+  try {
+    const col = await getProductionItemsCollection();
+    const item = await col.findOne({ id: req.params.id });
+    if (!item) return res.status(404).json({ error: 'Topilmadi' });
+
+    const update = { updatedAt: Date.now() };
+    if (req.body.stageIndex !== undefined) {
+      update.stageIndex = Math.max(0, Math.min(PRODUCTION_STAGES.length - 1, Number(req.body.stageIndex)));
+    }
+    if (typeof req.body.notes === 'string') update.notes = req.body.notes;
+
+    const employeeName = getEmployeeName(req);
+    const reachedFinalStage = update.stageIndex === PRODUCTION_STAGES.length - 1;
+
+    // Reaching the final stage ("Tayyor") automatically produces a finished-goods serial.
+    if (reachedFinalStage && item.status !== 'completed') {
+      const serialsCol = await getSerialsCollection();
+      const cat = PRODUCT_CATALOG[item.category];
+      const serialNumber = await nextSerialNumber(serialsCol);
+      const productName = `${cat.label} ${item.size} kv`;
+
+      const serial = {
+        id: uid('s'),
+        serialNumber,
+        productId: null,
+        productName,
+        cogs: 0,
+        status: 'stock',
+        dealId: null,
+        warrantyMonths: 24,
+        assembledAt: Date.now(),
+        assembledBy: employeeName,
+      };
+      await serialsCol.insertOne({ ...serial });
+      update.status = 'completed';
+      update.completedSerialNumber = serialNumber;
+
+      notifyGroup(
+        `🎉 <b>Yangi kotel tayyor!</b>\n${escapeHtmlServer(serialNumber)} — ${escapeHtmlServer(productName)}\n👤 ${escapeHtmlServer(employeeName)}`
+      );
+    }
+
+    const updated = await col.findOneAndUpdate(
+      { id: req.params.id },
+      { $set: update },
+      { returnDocument: 'after', projection: { _id: 0 } }
+    );
+    res.json(updated);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Yangilashda xatolik' });
+  }
+});
+
+app.delete('/api/production-items/:id', attachEmployee, requireRole('admin', 'warehouse_production'), async (req, res) => {
+  try {
+    const col = await getProductionItemsCollection();
+    await col.deleteOne({ id: req.params.id });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "O'chirishda xatolik" });
   }
 });
 
@@ -894,6 +1026,125 @@ app.get('/api/analytics/overview', attachEmployee, requireRole('admin'), async (
     res.status(500).json({ error: 'Hisoblashda xatolik' });
   }
 });
+
+// ================= Debts (Debitor / Kreditor) =================
+// Debitor = customer owes us; Kreditor = we owe a supplier.
+
+app.get('/api/debts', attachEmployee, requireRole('admin', 'finance', 'sales'), async (req, res) => {
+  try {
+    const col = await getDebtsCollection();
+    const filter = {};
+    if (req.query.type) filter.type = req.query.type;
+    // Salespeople only ever see their own customers' debitor debts.
+    if (req.employee.role === 'sales') {
+      filter.type = 'debitor';
+      filter.salesTelegramId = req.employee.telegramId;
+    }
+    const debts = await col.find(filter, { projection: { _id: 0 } }).sort({ createdAt: -1 }).toArray();
+    res.json(debts);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Bazaga ulanishda xatolik' });
+  }
+});
+
+app.post('/api/debts', attachEmployee, requireRole('admin', 'finance'), async (req, res) => {
+  const { type, name, phone, dealAmount, advance, deadline, supplierItem } = req.body || {};
+  if (!['debitor', 'kreditor'].includes(type) || !name) {
+    return res.status(400).json({ error: "Turi va nomi to'g'ri kiritilishi kerak" });
+  }
+  const total = Number(dealAmount) || 0;
+  const paid = Number(advance) || 0;
+  const remaining = Math.max(0, total - paid);
+  const debt = {
+    id: uid('d'),
+    type,
+    name: String(name).trim(),
+    phone: phone || '',
+    supplierItem: supplierItem || '',
+    dealAmount: total,
+    advance: paid,
+    remainingAmount: remaining,
+    deadline: deadline || '',
+    status: remaining <= 0 ? 'paid' : 'pending',
+    salesTelegramId: req.employee.role === 'sales' ? req.employee.telegramId : null,
+    createdBy: getEmployeeName(req),
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+  try {
+    const col = await getDebtsCollection();
+    await col.insertOne({ ...debt });
+    res.json(debt);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Saqlashda xatolik' });
+  }
+});
+
+// Records a payment against a debt (reduces remainingAmount) or updates deadline/status directly.
+app.patch('/api/debts/:id', attachEmployee, requireRole('admin', 'finance'), async (req, res) => {
+  try {
+    const col = await getDebtsCollection();
+    const debt = await col.findOne({ id: req.params.id });
+    if (!debt) return res.status(404).json({ error: 'Topilmadi' });
+
+    const update = { updatedAt: Date.now() };
+    if (req.body.payment !== undefined) {
+      const payment = Number(req.body.payment) || 0;
+      update.advance = (debt.advance || 0) + payment;
+      update.remainingAmount = Math.max(0, (debt.dealAmount || 0) - update.advance);
+      update.status = update.remainingAmount <= 0 ? 'paid' : debt.status;
+    }
+    if (typeof req.body.deadline === 'string') update.deadline = req.body.deadline;
+    if (typeof req.body.status === 'string') update.status = req.body.status;
+
+    const updated = await col.findOneAndUpdate(
+      { id: req.params.id },
+      { $set: update },
+      { returnDocument: 'after', projection: { _id: 0 } }
+    );
+    res.json(updated);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Yangilashda xatolik' });
+  }
+});
+
+app.delete('/api/debts/:id', attachEmployee, requireRole('admin', 'finance'), async (req, res) => {
+  try {
+    const col = await getDebtsCollection();
+    await col.deleteOne({ id: req.params.id });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "O'chirishda xatolik" });
+  }
+});
+
+// Daily-ish check: flags debts past their deadline as 'overdue' and pings the group.
+async function checkOverdueDebts() {
+  try {
+    const col = await getDebtsCollection();
+    const today = new Date().toISOString().slice(0, 10);
+    const overdue = await col.find({
+      deadline: { $ne: '', $lt: today },
+      status: 'pending',
+    }).toArray();
+
+    for (const debt of overdue) {
+      await col.updateOne({ id: debt.id }, { $set: { status: 'overdue' } });
+      notifyGroup(
+        `🔴 <b>Muddati o'tgan qarz!</b>\n${debt.type === 'debitor' ? '👤' : '🏭'} ${escapeHtmlServer(debt.name)}\n` +
+        `Qoldiq: ${debt.remainingAmount}\nMuddat: ${escapeHtmlServer(debt.deadline)}`
+      );
+    }
+  } catch (e) {
+    console.error('Qarzdorlikni tekshirishda xatolik:', e.message);
+  }
+}
+setInterval(checkOverdueDebts, 60 * 60 * 1000);
+checkOverdueDebts();
 
 // ================= Excel reports =================
 
