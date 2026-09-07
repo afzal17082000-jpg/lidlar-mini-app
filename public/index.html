@@ -695,6 +695,7 @@
   <div class="nav-item hidden" data-tab="readystock" id="navReadystock"><span class="icon">✅</span> Tayyor mahsulotlar</div>
   <div class="nav-item hidden" data-tab="social" id="navSocial"><span class="icon">📲</span> Kanallarga a'zolik</div>
   <div class="nav-item hidden" data-tab="calls" id="navCalls"><span class="icon">🎙️</span> Zvonoklar (AI)</div>
+  <div class="nav-item hidden" data-tab="service" id="navService"><span class="icon">🛠️</span> Servis va aloqa</div>
   <div class="nav-item hidden" data-tab="warehouse" id="navWarehouse"><span class="icon">📦</span> Ombor</div>
   <div class="nav-item hidden" data-tab="production" id="navProduction"><span class="icon">🏭</span> Ishlab chiqarish</div>
   <div class="nav-item hidden" data-tab="finance" id="navFinance"><span class="icon">💰</span> Moliya</div>
@@ -784,6 +785,67 @@
     <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 16px;" id="fabUploadCall">🎙️ Audio yuklash</button>
   </div>
   <div class="list" id="callsList" style="padding:0 16px;"></div>
+</div>
+
+<div class="tab-panel hidden" id="servicePanel">
+  <div class="searchbar" style="justify-content:flex-end;">
+    <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 16px;" id="fabAddService">+ Mijoz qo'shish</button>
+  </div>
+  <div class="list" id="serviceList" style="padding:0 16px;"></div>
+</div>
+
+<div class="sheet-overlay" id="serviceSheetOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2 id="serviceSheetTitle">Yangi servis mijozi</h2>
+      <button class="sheet-close" id="serviceSheetClose">✕</button>
+    </div>
+    <div class="field">
+      <label>Mijoz F.I.Sh *</label>
+      <input type="text" id="svName" required>
+    </div>
+    <div class="field">
+      <label>Telefon</label>
+      <input type="tel" id="svPhone">
+    </div>
+    <div class="field">
+      <label>Viloyat</label>
+      <select id="svRegion"><option value="">Tanlang</option></select>
+    </div>
+    <div class="field">
+      <label>Tuman/Shahar</label>
+      <select id="svDistrict"><option value="">Avval viloyatni tanlang</option></select>
+    </div>
+    <div class="field">
+      <label>Mahsulot (model, kvadratura)</label>
+      <input type="text" id="svProduct" placeholder="Masalan: Bunkerlik Gold 300 kv">
+    </div>
+    <div class="field">
+      <label>Seriya raqami</label>
+      <input type="text" id="svSerial">
+    </div>
+    <div class="field">
+      <label>Kotelning holati</label>
+      <div class="role-grid" id="svConditionGrid" style="grid-template-columns:1fr 1fr 1fr;">
+        <button type="button" class="role-btn" data-val="A'lo">A'lo</button>
+        <button type="button" class="role-btn" data-val="Kichik muammo">Kichik muammo</button>
+        <button type="button" class="role-btn" data-val="Servis brigada kerak">Servis kerak</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Qayta aloqa sanasi</label>
+      <input type="date" id="svFollowUp">
+    </div>
+    <div class="field">
+      <label>Servis xodimi izohi</label>
+      <textarea id="svStaffNotes"></textarea>
+    </div>
+    <div class="field">
+      <label>Mijoz fikri / e'tirozlari</label>
+      <textarea id="svFeedback"></textarea>
+    </div>
+    <button type="button" class="submit-btn" id="svSaveBtn">Saqlash</button>
+  </div>
 </div>
 
 <div class="sheet-overlay" id="callUploadOverlay">
@@ -1446,6 +1508,28 @@ const API = {
     if (!res.ok) throw new Error('delete failed');
     return res.json();
   },
+  async service(){
+    const res = await fetch('/api/service', { headers: authHeaders() });
+    if (!res.ok) throw new Error('service failed');
+    return res.json();
+  },
+  async createService(payload){
+    const res = await fetch('/api/service', { method:'POST', headers: authHeaders(true), body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'create failed');
+    return data;
+  },
+  async updateService(id, payload){
+    const res = await fetch('/api/service/' + id, { method:'PATCH', headers: authHeaders(true), body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'update failed');
+    return data;
+  },
+  async removeService(id){
+    const res = await fetch('/api/service/' + id, { method:'DELETE', headers: authHeaders() });
+    if (!res.ok) throw new Error('delete failed');
+    return res.json();
+  },
   async assignSerial(leadId, serialId){
     const res = await fetch('/api/leads/' + leadId + '/assign-serial', { method:'POST', headers: authHeaders(true), body: JSON.stringify({ serialId }) });
     const data = await res.json();
@@ -1629,7 +1713,7 @@ function renderGreeting(){
 }
 
 // ================= Sidebar navigation =================
-const PAGE_TITLES = { dashboard: 'Bosh sahifa', leads: 'Sotuv', catalog: 'Katalog', readystock: 'Tayyor mahsulotlar', social: "Kanallarga a'zolik", calls: 'Zvonoklar (AI)', warehouse: 'Ombor', production: 'Ishlab chiqarish', finance: 'Moliya', debts: 'Qarzdorlik' };
+const PAGE_TITLES = { dashboard: 'Bosh sahifa', leads: 'Sotuv', catalog: 'Katalog', readystock: 'Tayyor mahsulotlar', social: "Kanallarga a'zolik", calls: 'Zvonoklar (AI)', service: 'Servis va aloqa', warehouse: 'Ombor', production: 'Ishlab chiqarish', finance: 'Moliya', debts: 'Qarzdorlik' };
 
 function openSidebar(){
   document.getElementById('sidebar').classList.add('open');
@@ -1653,6 +1737,7 @@ function switchTab(tab){
   document.getElementById('readyStockPanel').classList.toggle('hidden', tab !== 'readystock');
   document.getElementById('socialPanel').classList.toggle('hidden', tab !== 'social');
   document.getElementById('callsPanel').classList.toggle('hidden', tab !== 'calls');
+  document.getElementById('servicePanel').classList.toggle('hidden', tab !== 'service');
   document.getElementById('warehousePanel').classList.toggle('hidden', tab !== 'warehouse');
   document.getElementById('productionPanel').classList.toggle('hidden', tab !== 'production');
   document.getElementById('financePanel').classList.toggle('hidden', tab !== 'finance');
@@ -1665,6 +1750,7 @@ function switchTab(tab){
   if (tab === 'readystock') loadReadyStock();
   if (tab === 'social') loadSocial();
   if (tab === 'calls') loadCalls();
+  if (tab === 'service') loadService();
   if (tab === 'warehouse') loadMaterials();
   if (tab === 'production') { loadProdItems(); loadProducts(); loadSerials(); }
   if (tab === 'finance') { loadFinance(); loadPnl(); }
@@ -1685,12 +1771,14 @@ function initTabs(){
   const showReadyStock = ['admin', 'sales', 'warehouse_production'].includes(role);
   const showSocial = ['admin', 'sales'].includes(role);
   const showCalls = ['admin', 'sales'].includes(role);
+  const showService = ['admin', 'sales'].includes(role);
 
   document.getElementById('navDashboard').classList.toggle('hidden', !showDashboard);
   document.getElementById('navCatalog').classList.toggle('hidden', !showCatalog);
   document.getElementById('navReadystock').classList.toggle('hidden', !showReadyStock);
   document.getElementById('navSocial').classList.toggle('hidden', !showSocial);
   document.getElementById('navCalls').classList.toggle('hidden', !showCalls);
+  document.getElementById('navService').classList.toggle('hidden', !showService);
   document.getElementById('navWarehouse').classList.toggle('hidden', !showWarehouse);
   document.getElementById('navProduction').classList.toggle('hidden', !showProduction);
   document.getElementById('navFinance').classList.toggle('hidden', !showFinance);
@@ -2526,7 +2614,7 @@ document.getElementById('callUploadBtn').addEventListener('click', async () => {
   const btn = document.getElementById('callUploadBtn');
   const statusEl = document.getElementById('callUploadStatus');
   btn.disabled = true;
-  statusEl.textContent = "Tahlil qilinmoqda... bu bir necha o'n soniya davom etishi mumkin";
+  statusEl.textContent = "Tahlil qilinmoqda... Gemini band bo'lsa avtomatik qayta uriniladi, bu 1 daqiqagacha davom etishi mumkin";
   try {
     const result = await API.uploadCall(formData);
     callLogs.unshift(result);
@@ -2536,6 +2624,152 @@ document.getElementById('callUploadBtn').addEventListener('click', async () => {
   } catch (e) {
     statusEl.textContent = '';
     showToast(e.message || "Tahlil qilib bo'lmadi", true);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ================= After-Sales Service =================
+let serviceItems = [];
+let editingServiceId = null;
+let svSelectedCondition = "A'lo";
+
+async function loadService(){
+  try {
+    serviceItems = await API.service();
+    renderService();
+  } catch (e) {
+    showToast("Yuklab bo'lmadi", true);
+  }
+}
+
+const CONDITION_COLORS = { "A'lo": 'var(--s-buyurtma)', "Kichik muammo": 'var(--s-muzokara)', "Servis brigada kerak": 'var(--danger)' };
+
+function renderService(){
+  const list = document.getElementById('serviceList');
+  if (!serviceItems.length) {
+    list.innerHTML = `<div class="empty"><h3>Hozircha servis mijozi yo'q</h3><p>"Sotildi" bosqichiga o'tgan lidlar shu yerga avtomatik qo'shiladi.</p></div>`;
+    return;
+  }
+  list.innerHTML = serviceItems.map(s => `
+    <div class="mat-card" data-id="${s.id}">
+      <div class="mat-top">
+        <div>
+          <div class="mat-name">${escapeHtml(s.customerName)}</div>
+          <div class="mat-sub">${s.phone ? escapeHtml(s.phone) : ''}${(s.region || s.district) ? ' · ' + escapeHtml([s.region, s.district].filter(Boolean).join(', ')) : ''}</div>
+        </div>
+        <div class="mat-qty" style="color:${CONDITION_COLORS[s.condition] || 'var(--text)'}">${escapeHtml(s.condition)}</div>
+      </div>
+      <div class="card-extra" style="margin-top:6px;">
+        ${s.product ? `<span>🫖 ${escapeHtml(s.product)}</span>` : ''}
+        ${s.serialNumber ? `<span>🔢 ${escapeHtml(s.serialNumber)}</span>` : ''}
+        ${s.followUpDate ? `<span>📅 Qayta aloqa: ${escapeHtml(s.followUpDate)}</span>` : ''}
+      </div>
+      ${s.staffNotes ? `<div class="card-comment" style="margin-top:8px;"><b>Izoh:</b> ${escapeHtml(s.staffNotes)}</div>` : ''}
+      ${s.customerFeedback ? `<div class="card-comment" style="margin-top:4px;"><b>Mijoz fikri:</b> ${escapeHtml(s.customerFeedback)}</div>` : ''}
+      <div class="mat-actions">
+        <button type="button" class="mat-btn" data-action="edit">Tahrirlash</button>
+        <button type="button" class="mat-btn out" data-action="delete">O'chirish</button>
+      </div>
+    </div>
+  `).join('');
+
+  list.querySelectorAll('.mat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.closest('.mat-card').dataset.id;
+      if (btn.dataset.action === 'edit') {
+        openServiceSheet(serviceItems.find(s => s.id === id));
+      } else {
+        const doDelete = async () => {
+          try {
+            await API.removeService(id);
+            serviceItems = serviceItems.filter(s => s.id !== id);
+            renderService();
+            showToast("O'chirildi");
+          } catch (e) { showToast("O'chirib bo'lmadi", true); }
+        };
+        if (tg && tg.showConfirm) tg.showConfirm("O'chirmoqchimisiz?", (ok) => { if (ok) doDelete(); });
+        else if (confirm("O'chirmoqchimisiz?")) doDelete();
+      }
+    });
+  });
+}
+
+async function openServiceSheet(item){
+  editingServiceId = item ? item.id : null;
+  document.getElementById('serviceSheetTitle').textContent = item ? 'Tahrirlash' : 'Yangi servis mijozi';
+  document.getElementById('svName').value = item ? item.customerName : '';
+  document.getElementById('svPhone').value = item ? item.phone : '';
+  document.getElementById('svProduct').value = item ? item.product : '';
+  document.getElementById('svSerial').value = item ? item.serialNumber : '';
+  document.getElementById('svFollowUp').value = item ? item.followUpDate : '';
+  document.getElementById('svStaffNotes').value = item ? item.staffNotes : '';
+  document.getElementById('svFeedback').value = item ? item.customerFeedback : '';
+  svSelectedCondition = item ? item.condition : "A'lo";
+  document.querySelectorAll('#svConditionGrid .role-btn').forEach(b => b.classList.toggle('selected', b.dataset.val === svSelectedCondition));
+
+  await ensureRegionsLoaded();
+  const regionSelect = document.getElementById('svRegion');
+  const districtSelect = document.getElementById('svDistrict');
+  regionSelect.value = item ? (item.region || '') : '';
+  if (item && item.region && regionsData && regionsData[item.region]) {
+    districtSelect.innerHTML = '<option value="">Tanlang</option>' +
+      regionsData[item.region].map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+    districtSelect.value = item.district || '';
+  } else {
+    districtSelect.innerHTML = '<option value="">Avval viloyatni tanlang</option>';
+  }
+
+  document.getElementById('serviceSheetOverlay').classList.add('open');
+}
+document.getElementById('fabAddService').addEventListener('click', () => openServiceSheet(null));
+document.getElementById('serviceSheetClose').addEventListener('click', () => {
+  document.getElementById('serviceSheetOverlay').classList.remove('open');
+});
+document.getElementById('svRegion').addEventListener('change', (e) => {
+  const districtSelect = document.getElementById('svDistrict');
+  const districts = (regionsData && regionsData[e.target.value]) || [];
+  districtSelect.innerHTML = '<option value="">Tanlang</option>' +
+    districts.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+});
+document.getElementById('svConditionGrid').querySelectorAll('.role-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    svSelectedCondition = btn.dataset.val;
+    document.querySelectorAll('#svConditionGrid .role-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+  });
+});
+document.getElementById('svSaveBtn').addEventListener('click', async () => {
+  const customerName = document.getElementById('svName').value.trim();
+  if (!customerName) { showToast("Mijoz ismini kiriting", true); return; }
+  const payload = {
+    customerName,
+    phone: document.getElementById('svPhone').value.trim(),
+    region: document.getElementById('svRegion').value,
+    district: document.getElementById('svDistrict').value,
+    product: document.getElementById('svProduct').value.trim(),
+    serialNumber: document.getElementById('svSerial').value.trim(),
+    condition: svSelectedCondition,
+    followUpDate: document.getElementById('svFollowUp').value,
+    staffNotes: document.getElementById('svStaffNotes').value.trim(),
+    customerFeedback: document.getElementById('svFeedback').value.trim(),
+  };
+  const btn = document.getElementById('svSaveBtn');
+  btn.disabled = true;
+  try {
+    if (editingServiceId) {
+      const updated = await API.updateService(editingServiceId, payload);
+      const idx = serviceItems.findIndex(s => s.id === editingServiceId);
+      if (idx >= 0) serviceItems[idx] = updated;
+    } else {
+      const created = await API.createService(payload);
+      serviceItems.unshift(created);
+    }
+    renderService();
+    document.getElementById('serviceSheetOverlay').classList.remove('open');
+    showToast('Saqlandi');
+  } catch (e) {
+    showToast(e.message || "Saqlab bo'lmadi", true);
   } finally {
     btn.disabled = false;
   }
