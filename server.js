@@ -13,6 +13,7 @@ const {
   getProductionItemsCollection,
   getFinanceCollection,
   getDebtsCollection,
+  getSocialSubscriptionsCollection,
 } = require('./db');
 
 const app = express();
@@ -569,6 +570,31 @@ app.post('/api/materials', attachEmployee, requireRole('admin', 'warehouse_produ
   }
 });
 
+// General edit for a material's own fields (name/unit/min/max/price) — NOT the quantity,
+// which always goes through /adjust for a proper audit trail.
+app.patch('/api/materials/:id', attachEmployee, requireRole('admin', 'warehouse_production'), async (req, res) => {
+  try {
+    const col = await getMaterialsCollection();
+    const update = { updatedAt: Date.now() };
+    if (typeof req.body.name === 'string') update.name = req.body.name.trim();
+    if (typeof req.body.unit === 'string') update.unit = req.body.unit.trim();
+    if (req.body.minStock !== undefined) update.minStock = Number(req.body.minStock) || 0;
+    if (req.body.maxStock !== undefined) update.maxStock = Number(req.body.maxStock) || 0;
+    if (req.body.purchasePrice !== undefined) update.purchasePrice = Number(req.body.purchasePrice) || 0;
+
+    const updated = await col.findOneAndUpdate(
+      { id: req.params.id },
+      { $set: update },
+      { returnDocument: 'after', projection: { _id: 0 } }
+    );
+    if (!updated) return res.status(404).json({ error: 'Topilmadi' });
+    res.json(updated);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Yangilashda xatolik' });
+  }
+});
+
 app.post('/api/materials/:id/adjust', attachEmployee, requireRole('admin', 'warehouse_production'), async (req, res) => {
   const { type, qty, note, date } = req.body || {};
   const amount = Number(qty);
@@ -962,6 +988,29 @@ app.post('/api/finance/entries', attachEmployee, requireRole('admin', 'finance')
   }
 });
 
+app.patch('/api/finance/entries/:id', attachEmployee, requireRole('admin', 'finance'), async (req, res) => {
+  try {
+    const col = await getFinanceCollection();
+    const update = { updatedAt: Date.now() };
+    if (['income', 'expense'].includes(req.body.type)) update.type = req.body.type;
+    if (typeof req.body.category === 'string') update.category = req.body.category;
+    if (req.body.amount !== undefined) update.amount = Number(req.body.amount) || 0;
+    if (typeof req.body.date === 'string') update.date = req.body.date;
+    if (typeof req.body.note === 'string') update.note = req.body.note;
+
+    const updated = await col.findOneAndUpdate(
+      { id: req.params.id },
+      { $set: update },
+      { returnDocument: 'after', projection: { _id: 0 } }
+    );
+    if (!updated) return res.status(404).json({ error: 'Topilmadi' });
+    res.json(updated);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Yangilashda xatolik' });
+  }
+});
+
 app.delete('/api/finance/entries/:id', attachEmployee, requireRole('admin', 'finance'), async (req, res) => {
   try {
     const col = await getFinanceCollection();
@@ -1132,6 +1181,14 @@ app.patch('/api/debts/:id', attachEmployee, requireRole('admin', 'finance'), asy
     }
     if (typeof req.body.deadline === 'string') update.deadline = req.body.deadline;
     if (typeof req.body.status === 'string') update.status = req.body.status;
+    if (typeof req.body.name === 'string') update.name = req.body.name.trim();
+    if (typeof req.body.phone === 'string') update.phone = req.body.phone;
+    if (typeof req.body.supplierItem === 'string') update.supplierItem = req.body.supplierItem;
+    // Direct edit of the deal amount (not a payment) — recompute remaining accordingly.
+    if (req.body.dealAmount !== undefined && req.body.payment === undefined) {
+      update.dealAmount = Number(req.body.dealAmount) || 0;
+      update.remainingAmount = Math.max(0, update.dealAmount - (debt.advance || 0));
+    }
 
     const updated = await col.findOneAndUpdate(
       { id: req.params.id },
@@ -1179,6 +1236,85 @@ async function checkOverdueDebts() {
 }
 setInterval(checkOverdueDebts, 60 * 60 * 1000);
 checkOverdueDebts();
+
+// ================= Social subscriptions (Telegram/Instagram channel follow tracking) =================
+
+app.get('/api/social-subscriptions', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
+  try {
+    const col = await getSocialSubscriptionsCollection();
+    const filter = {};
+    if (req.employee.role === 'sales') filter.assignedSalesTelegramId = req.employee.telegramId;
+    const items = await col.find(filter, { projection: { _id: 0 } }).sort({ createdAt: -1 }).toArray();
+    res.json(items);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Bazaga ulanishda xatolik' });
+  }
+});
+
+app.post('/api/social-subscriptions', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
+  const { customerName, phone, tgUsername, tgStatus, igUsername, igStatus, notes } = req.body || {};
+  if (!customerName) return res.status(400).json({ error: 'Mijoz ismi majburiy' });
+  const employeeName = getEmployeeName(req);
+  const item = {
+    id: uid('ss'),
+    customerName: String(customerName).trim(),
+    phone: phone || '',
+    tgUsername: tgUsername || '',
+    tgStatus: tgStatus === 'member' ? 'member' : 'not_member',
+    igUsername: igUsername || '',
+    igStatus: igStatus === 'member' ? 'member' : 'not_member',
+    notes: notes || '',
+    assignedSalesName: employeeName,
+    assignedSalesTelegramId: req.employee.telegramId,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+  try {
+    const col = await getSocialSubscriptionsCollection();
+    await col.insertOne({ ...item });
+    res.json(item);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Saqlashda xatolik' });
+  }
+});
+
+app.patch('/api/social-subscriptions/:id', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
+  try {
+    const col = await getSocialSubscriptionsCollection();
+    const update = { updatedAt: Date.now() };
+    if (typeof req.body.customerName === 'string') update.customerName = req.body.customerName.trim();
+    if (typeof req.body.phone === 'string') update.phone = req.body.phone;
+    if (typeof req.body.tgUsername === 'string') update.tgUsername = req.body.tgUsername;
+    if (req.body.tgStatus) update.tgStatus = req.body.tgStatus === 'member' ? 'member' : 'not_member';
+    if (typeof req.body.igUsername === 'string') update.igUsername = req.body.igUsername;
+    if (req.body.igStatus) update.igStatus = req.body.igStatus === 'member' ? 'member' : 'not_member';
+    if (typeof req.body.notes === 'string') update.notes = req.body.notes;
+
+    const updated = await col.findOneAndUpdate(
+      { id: req.params.id },
+      { $set: update },
+      { returnDocument: 'after', projection: { _id: 0 } }
+    );
+    if (!updated) return res.status(404).json({ error: 'Topilmadi' });
+    res.json(updated);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Yangilashda xatolik' });
+  }
+});
+
+app.delete('/api/social-subscriptions/:id', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
+  try {
+    const col = await getSocialSubscriptionsCollection();
+    await col.deleteOne({ id: req.params.id });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "O'chirishda xatolik" });
+  }
+});
 
 // ================= Excel reports =================
 
