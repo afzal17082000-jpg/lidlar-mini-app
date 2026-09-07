@@ -70,6 +70,11 @@ async function getCallLogsCollection() {
   return db.collection('callLogs');
 }
 
+async function getServiceCustomersCollection() {
+  const db = await connect();
+  return db.collection('serviceCustomers');
+}
+
 module.exports = {
   getLeadsCollection,
   getEmployeesCollection,
@@ -82,4 +87,5 @@ module.exports = {
   getDebtsCollection,
   getSocialSubscriptionsCollection,
   getCallLogsCollection,
+  getServiceCustomersCollection,
 };
