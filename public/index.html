@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Lidlar</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -743,8 +744,35 @@
       <div class="stat-badge good">Yopilgan bitimlar</div>
     </div>
   </div>
-  <div class="detail-label" style="padding:0 16px; font-size:14px; color:var(--text);">Sotuvchilar reytingi</div>
-  <div class="mat-card" style="margin:8px 16px;" id="salesRepList"></div>
+
+  <div class="detail-label" style="padding:0 16px; font-size:14px; color:var(--text);">Kim qancha lid qo'shdi?</div>
+  <div class="mat-card" style="margin:8px 16px; padding:12px;"><canvas id="chartLeads" height="180"></canvas></div>
+
+  <div class="detail-label" style="padding:0 16px; font-size:14px; color:var(--text);">Kim qancha muzokaraga o'tkazdi?</div>
+  <div class="mat-card" style="margin:8px 16px; padding:12px;"><canvas id="chartNegotiation" height="180"></canvas></div>
+
+  <div class="detail-label" style="padding:0 16px; font-size:14px; color:var(--text);">Kim qancha sotdi (tushum ulushi)</div>
+  <div class="mat-card" style="margin:8px 16px; padding:12px;"><canvas id="chartRevenue" height="220"></canvas></div>
+
+  <div class="detail-label" style="padding:0 16px; font-size:12px;">Diagrammadagi ustun yoki bo'lakni bosing — sotuvchining to'liq faoliyati pastda ochiladi</div>
+
+  <div id="repDrilldown" style="display:none; margin:8px 16px 20px;">
+    <div class="mat-card" style="padding:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="mat-name" id="ddName" style="font-size:16px;"></div>
+        <button type="button" class="mat-btn" id="ddClose" style="flex:0 0 auto; padding:6px 10px;">✕</button>
+      </div>
+      <div class="card-extra" style="margin-top:8px;">
+        <span id="ddAvgScore"></span>
+      </div>
+      <div class="detail-label" style="margin-top:14px;">Qo'shgan lidlari</div>
+      <div id="ddLeadsList" style="max-height:180px; overflow-y:auto;"></div>
+      <div class="detail-label" style="margin-top:14px;">Muzokaradagi mijozlar</div>
+      <div id="ddNegotiationList" style="max-height:140px; overflow-y:auto;"></div>
+      <div class="detail-label" style="margin-top:14px;">Sotgan mahsulotlari</div>
+      <div id="ddSoldList" style="max-height:140px; overflow-y:auto;"></div>
+    </div>
+  </div>
 </div>
 
 <div class="tab-panel" id="leadsPanel">
@@ -1613,6 +1641,11 @@ const API = {
     const res = await fetch('/api/analytics/sales', { headers: authHeaders() });
     if (!res.ok) throw new Error('analytics failed');
     return res.json();
+  },
+  async repActivity(telegramId){
+    const res = await fetch('/api/analytics/sales/' + telegramId, { headers: authHeaders() });
+    if (!res.ok) throw new Error('activity failed');
+    return res.json();
   }
 };
 
@@ -1766,7 +1799,7 @@ function initTabs(){
   // CEO has identical full access to Admin everywhere in this app.
   const role = currentEmployee.role === 'ceo' ? 'admin' : currentEmployee.role;
 
-  const showDashboard = role === 'admin';
+  const showDashboard = ['admin', 'finance'].includes(role);
   const showLeads = ['admin', 'sales', 'finance'].includes(role);
   const showCatalog = ['admin', 'sales'].includes(role);
   const showWarehouse = ['admin', 'warehouse'].includes(role);
@@ -1820,9 +1853,15 @@ function initTabs(){
 }
 
 // ================= Dashboard =================
+let chartLeads = null, chartNegotiation = null, chartRevenue = null;
+let currentReps = [];
+
+const CHART_PALETTE = ['#6C5DD3', '#4FA8D8', '#2FB8A8', '#F2A94B', '#E07BC7', '#22C55E', '#EF4444', '#8B7FD9'];
+
 async function loadDashboard(){
   try {
     const [overview, reps] = await Promise.all([API.analyticsOverview(), API.analyticsSales()]);
+    currentReps = reps;
 
     document.getElementById('statLeads').textContent = overview.totalLeads;
     document.getElementById('statActive').textContent = overview.activeDeals;
@@ -1830,26 +1869,98 @@ async function loadDashboard(){
     document.getElementById('statStockBadge').style.display = overview.stockAlerts > 0 ? 'inline-block' : 'none';
     document.getElementById('statWinRate').textContent = overview.winRate + '%';
 
-    const list = document.getElementById('salesRepList');
-    if (!reps.length) {
-      list.innerHTML = `<div class="mat-sub" style="padding:8px;">Hali ma'lumot yo'q.</div>`;
-    } else {
-      list.innerHTML = reps.map(r => `
-        <div class="rep-row">
-          <div>
-            <div class="rep-name">${escapeHtml(r.name)}</div>
-            <div class="rep-stats">
-              Lid: ${r.leadsCount} · Konsultatsiya: ${r.consultationCount} · Muzokara: ${r.negotiationCount} · Yopdi: ${r.closedWonCount}
-            </div>
-          </div>
-          <div class="rep-amount">${r.totalDealAmount.toLocaleString()}</div>
-        </div>
-      `).join('');
-    }
+    renderDashboardCharts(reps);
   } catch (e) {
     showToast("Statistikani yuklab bo'lmadi", true);
   }
 }
+
+function renderDashboardCharts(reps){
+  const names = reps.map(r => r.name);
+  const colors = reps.map((r, i) => CHART_PALETTE[i % CHART_PALETTE.length]);
+
+  if (chartLeads) chartLeads.destroy();
+  if (chartNegotiation) chartNegotiation.destroy();
+  if (chartRevenue) chartRevenue.destroy();
+
+  const clickHandler = (evt, elements, chart) => {
+    if (!elements.length) return;
+    const idx = elements[0].index;
+    const rep = reps[idx];
+    if (rep) openRepDrilldown(rep);
+  };
+
+  chartLeads = new Chart(document.getElementById('chartLeads'), {
+    type: 'bar',
+    data: { labels: names, datasets: [{ label: 'Lidlar', data: reps.map(r => r.leadsCount), backgroundColor: colors, borderRadius: 6 }] },
+    options: {
+      onClick: clickHandler,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+    },
+  });
+
+  chartNegotiation = new Chart(document.getElementById('chartNegotiation'), {
+    type: 'bar',
+    data: { labels: names, datasets: [{ label: 'Muzokarada', data: reps.map(r => r.negotiationCount), backgroundColor: colors, borderRadius: 6 }] },
+    options: {
+      onClick: clickHandler,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+    },
+  });
+
+  const hasRevenue = reps.some(r => r.totalDealAmount > 0);
+  chartRevenue = new Chart(document.getElementById('chartRevenue'), {
+    type: 'doughnut',
+    data: {
+      labels: names,
+      datasets: [{ data: hasRevenue ? reps.map(r => r.totalDealAmount) : reps.map(() => 1), backgroundColor: colors }],
+    },
+    options: {
+      onClick: clickHandler,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
+    },
+  });
+}
+
+async function openRepDrilldown(rep){
+  const box = document.getElementById('repDrilldown');
+  box.style.display = 'block';
+  document.getElementById('ddName').textContent = rep.name;
+  document.getElementById('ddAvgScore').textContent = 'Yuklanmoqda...';
+  document.getElementById('ddLeadsList').innerHTML = '';
+  document.getElementById('ddNegotiationList').innerHTML = '';
+  document.getElementById('ddSoldList').innerHTML = '';
+  box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  if (!rep.telegramId) {
+    document.getElementById('ddAvgScore').textContent = "Telegram ID topilmadi";
+    return;
+  }
+  try {
+    const data = await API.repActivity(rep.telegramId);
+    document.getElementById('ddAvgScore').textContent =
+      data.avgCallScore !== null ? `🎙️ AI qo'ng'iroq bahosi: ${data.avgCallScore}/10 (${data.callsCount} ta tahlil)` : "Hali AI qo'ng'iroq tahlili yo'q";
+
+    document.getElementById('ddLeadsList').innerHTML = data.leads.length
+      ? data.leads.map(l => `<div class="mat-sub" style="margin-bottom:4px;">${escapeHtml(l.name)} (${escapeHtml(l.phone)}) — ${escapeHtml(statusById[l.status]?.label || l.status)}</div>`).join('')
+      : `<div class="mat-sub">Yo'q</div>`;
+
+    document.getElementById('ddNegotiationList').innerHTML = data.negotiationLeads.length
+      ? data.negotiationLeads.map(l => `<div class="mat-sub" style="margin-bottom:4px;">${escapeHtml(l.name)} (${escapeHtml(l.phone)})</div>`).join('')
+      : `<div class="mat-sub">Yo'q</div>`;
+
+    document.getElementById('ddSoldList').innerHTML = data.soldLeads.length
+      ? data.soldLeads.map(l => `<div class="mat-sub" style="margin-bottom:4px;">${escapeHtml(l.name)} — ${escapeHtml(l.product || '')} ${l.assignedSerialNumber ? '(' + escapeHtml(l.assignedSerialNumber) + ')' : ''} — ${(l.dealAmount || 0).toLocaleString()}</div>`).join('')
+      : `<div class="mat-sub">Yo'q</div>`;
+  } catch (e) {
+    document.getElementById('ddAvgScore').textContent = "Yuklab bo'lmadi";
+  }
+}
+document.getElementById('ddClose').addEventListener('click', () => {
+  document.getElementById('repDrilldown').style.display = 'none';
+});
 
 // ================= Products / BOM / Assembly (production) =================
 let products = [];
