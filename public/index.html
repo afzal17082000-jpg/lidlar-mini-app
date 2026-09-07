@@ -1767,6 +1767,7 @@ function initTabs(){
   const role = currentEmployee.role === 'ceo' ? 'admin' : currentEmployee.role;
 
   const showDashboard = role === 'admin';
+  const showLeads = ['admin', 'sales', 'finance'].includes(role);
   const showCatalog = ['admin', 'sales'].includes(role);
   const showWarehouse = ['admin', 'warehouse'].includes(role);
   const showProduction = ['admin', 'warehouse'].includes(role);
@@ -1778,6 +1779,7 @@ function initTabs(){
   const showService = ['admin', 'service'].includes(role);
 
   document.getElementById('navDashboard').classList.toggle('hidden', !showDashboard);
+  document.getElementById('navLeads').classList.toggle('hidden', !showLeads);
   document.getElementById('navCatalog').classList.toggle('hidden', !showCatalog);
   document.getElementById('navReadystock').classList.toggle('hidden', !showReadyStock);
   document.getElementById('navSocial').classList.toggle('hidden', !showSocial);
@@ -1807,8 +1809,14 @@ function initTabs(){
     });
   });
 
-  // Admins land on the dashboard by default; everyone else starts on Sotuv.
-  switchTab(showDashboard ? 'dashboard' : 'leads');
+  // Land on the first tab this role is actually allowed to see.
+  let defaultTab = 'leads';
+  if (showDashboard) defaultTab = 'dashboard';
+  else if (showLeads) defaultTab = 'leads';
+  else if (showWarehouse) defaultTab = 'warehouse';
+  else if (showFinance) defaultTab = 'finance';
+  else if (showService) defaultTab = 'service';
+  switchTab(defaultTab);
 }
 
 // ================= Dashboard =================
