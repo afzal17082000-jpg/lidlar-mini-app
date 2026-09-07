@@ -291,7 +291,7 @@ app.get('/api/employees', attachEmployee, requireRole('admin', 'sales'), async (
 
 // ================= Leads / Deals (Sales pipeline) =================
 
-app.get('/api/leads', async (req, res) => {
+app.get('/api/leads', attachEmployee, requireRole('admin', 'sales', 'finance'), async (req, res) => {
   try {
     const col = await getLeadsCollection();
     const leads = await col.find({}, { projection: { _id: 0 } }).sort({ createdAt: -1 }).toArray();
@@ -302,7 +302,7 @@ app.get('/api/leads', async (req, res) => {
   }
 });
 
-app.post('/api/leads', async (req, res) => {
+app.post('/api/leads', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
   const user = getTelegramUser(req);
   if (user) {
     try {
@@ -425,7 +425,7 @@ app.post('/api/leads/:id/reassign', attachEmployee, requireRole('admin', 'sales'
   }
 });
 
-app.patch('/api/leads/:id', async (req, res) => {
+app.patch('/api/leads/:id', attachEmployee, requireRole('admin', 'sales', 'finance'), async (req, res) => {
   try {
     const col = await getLeadsCollection();
     const employeeName = getEmployeeName(req);
@@ -569,7 +569,7 @@ app.post('/api/leads/:id/assign-serial', attachEmployee, requireRole('admin', 's
   }
 });
 
-app.delete('/api/leads/:id', async (req, res) => {
+app.delete('/api/leads/:id', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
   try {
     const col = await getLeadsCollection();
     await col.deleteOne({ id: req.params.id });
