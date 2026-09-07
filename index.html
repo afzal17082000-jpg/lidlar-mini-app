@@ -1,0 +1,3236 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Lidlar</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F1EFFB;
+    --surface:#FFFFFF;
+    --surface-2:#F5F3FC;
+    --border:#E7E3F7;
+    --text:#211D3B;
+    --text-muted:#8B87A8;
+    --accent:#6C5DD3;
+    --accent-text:#FFFFFF;
+    --danger:#EF4444;
+    --sidebar-from:#6C5DD3;
+    --sidebar-to:#4B3F9E;
+    --success:#22C55E;
+
+    --s-yangi:#5B8DEF;
+    --s-boglanildi:#9B7BEF;
+    --s-muzokara:#F2A94B;
+    --s-followup:#2FB8CE;
+    --s-buyurtma:#22C55E;
+    --s-yetkazildi:#16A085;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    padding-bottom:96px;
+  }
+  h1,h2,h3{font-family:'Manrope',sans-serif; margin:0;}
+
+  /* ---------- Registration screen ---------- */
+  .reg-screen{
+    position:fixed; inset:0;
+    background:var(--bg);
+    z-index:100;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding:24px;
+  }
+  .reg-screen.hidden{display:none;}
+  .reg-title{font-size:24px; font-weight:800; margin-bottom:6px;}
+  .reg-sub{font-size:14px; color:var(--text-muted); margin-bottom:28px; line-height:1.5;}
+  .reg-field{margin-bottom:16px;}
+  .reg-field label{
+    display:block;
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--text-muted);
+    margin-bottom:6px;
+  }
+  .reg-field input{
+    width:100%;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    font-size:15px;
+    padding:12px 13px;
+    outline:none;
+  }
+  .role-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+  }
+  .role-btn{
+    background:var(--surface);
+    border:1px solid var(--border);
+    color:var(--text);
+    border-radius:12px;
+    padding:14px 10px;
+    font-size:13.5px;
+    font-weight:600;
+    font-family:'Inter',sans-serif;
+    cursor:pointer;
+    text-align:center;
+  }
+  .role-btn.selected{
+    background:var(--accent);
+    color:var(--accent-text);
+    border-color:transparent;
+  }
+  .reg-submit{
+    width:100%;
+    background:var(--accent);
+    color:var(--accent-text);
+    border:none;
+    border-radius:12px;
+    padding:14px;
+    font-size:15px;
+    font-weight:700;
+    font-family:'Inter',sans-serif;
+    cursor:pointer;
+    margin-top:8px;
+  }
+  .reg-submit:disabled{opacity:.5;}
+  .reg-error{
+    color:var(--danger);
+    font-size:13px;
+    margin-top:10px;
+    min-height:16px;
+  }
+
+  /* ---------- Tabs (legacy, kept for compatibility) ---------- */
+  .tabbar{
+    display:flex;
+    gap:8px;
+    padding:0 16px 14px;
+  }
+  .tab-btn{
+    flex:1;
+    padding:10px;
+    border-radius:12px;
+    border:1px solid var(--border);
+    background:var(--surface);
+    color:var(--text-muted);
+    font-size:13.5px;
+    font-weight:700;
+    font-family:'Inter',sans-serif;
+    cursor:pointer;
+    text-align:center;
+  }
+  .tab-btn.active{
+    background:var(--accent);
+    color:var(--accent-text);
+    border-color:transparent;
+  }
+  .tab-panel.hidden{display:none;}
+
+  /* ---------- Sidebar navigation ---------- */
+  .topbar{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:16px;
+  }
+  .hamburger{
+    width:40px; height:40px;
+    border-radius:12px;
+    border:1px solid var(--border);
+    background:var(--surface);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    flex-shrink:0;
+    box-shadow:0 2px 8px rgba(76,63,158,.06);
+  }
+  .sidebar-overlay{
+    position:fixed; inset:0;
+    background:rgba(30,20,60,.35);
+    z-index:60;
+    display:none;
+  }
+  .sidebar-overlay.open{display:block;}
+  .sidebar{
+    position:fixed;
+    top:0; left:0; bottom:0;
+    width:250px;
+    background:linear-gradient(180deg, var(--sidebar-from), var(--sidebar-to));
+    z-index:61;
+    padding:20px 14px;
+    display:flex;
+    flex-direction:column;
+    transform:translateX(-100%);
+    transition:transform .25s ease;
+  }
+  .sidebar.open{ transform:translateX(0); }
+  .sidebar-brand{
+    display:flex; align-items:center; gap:10px;
+    color:#fff; font-weight:800; font-size:17px;
+    padding:6px 8px 22px;
+  }
+  .sidebar-brand .dot{
+    width:34px; height:34px; border-radius:10px;
+    background:rgba(255,255,255,.18);
+    display:flex; align-items:center; justify-content:center;
+    font-size:16px;
+  }
+  .nav-item{
+    display:flex; align-items:center; gap:12px;
+    padding:12px 12px;
+    border-radius:12px;
+    color:rgba(255,255,255,.78);
+    font-size:14.5px;
+    font-weight:600;
+    cursor:pointer;
+    margin-bottom:4px;
+  }
+  .nav-item .icon{ width:20px; text-align:center; font-size:16px; }
+  .nav-item.active{
+    background:rgba(255,255,255,.16);
+    color:#fff;
+  }
+  .nav-item.hidden{display:none;}
+  .sidebar-spacer{flex:1;}
+  .sidebar-profile{
+    background:rgba(255,255,255,.14);
+    border-radius:14px;
+    padding:12px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .sidebar-avatar{
+    width:38px; height:38px; border-radius:50%;
+    background:rgba(255,255,255,.9);
+    display:flex; align-items:center; justify-content:center;
+    color:var(--sidebar-to);
+    font-weight:800;
+    flex-shrink:0;
+  }
+  .sidebar-profile .name{ color:#fff; font-weight:700; font-size:13.5px; }
+  .sidebar-profile .role{ color:rgba(255,255,255,.7); font-size:11.5px; }
+
+  /* ---------- Dashboard ---------- */
+  .stat-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    padding:0 16px 14px;
+  }
+  .stat-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:16px;
+    box-shadow:0 2px 10px rgba(76,63,158,.06);
+  }
+  .stat-label{
+    font-size:11.5px;
+    color:var(--text-muted);
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+    margin-bottom:8px;
+  }
+  .stat-value{ font-size:24px; font-weight:800; }
+  .stat-badge{
+    display:inline-block;
+    margin-top:8px;
+    padding:3px 9px;
+    border-radius:999px;
+    font-size:11px;
+    font-weight:700;
+  }
+  .stat-badge.good{ background:#DCFCE7; color:#16A34A; }
+  .stat-badge.warn{ background:#FEE2E2; color:#DC2626; }
+
+  .rep-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:12px 14px;
+    border-bottom:1px solid var(--border);
+  }
+  .rep-row:last-child{ border-bottom:none; }
+  .rep-name{ font-weight:700; font-size:14px; }
+  .rep-stats{ font-size:12px; color:var(--text-muted); margin-top:2px; }
+  .rep-amount{ font-weight:800; color:var(--success); font-size:14px; }
+
+  /* ---------- Materials (warehouse) ---------- */
+  .mat-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:14px 16px;
+    margin-bottom:10px;
+    box-shadow:0 2px 10px rgba(76,63,158,.06);
+  }
+  .mat-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .mat-name{font-size:15px; font-weight:700;}
+  .mat-qty{font-size:14px; font-weight:700;}
+  .mat-qty.low{color:var(--danger);}
+  .mat-sub{font-size:12px; color:var(--text-muted); margin-top:2px;}
+  .mat-actions{
+    display:flex;
+    gap:8px;
+    margin-top:12px;
+  }
+  .mat-btn{
+    flex:1;
+    padding:9px;
+    border-radius:9px;
+    border:1px solid var(--border);
+    background:var(--surface-2);
+    color:var(--text);
+    font-size:13px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .mat-btn.in{color:var(--s-buyurtma);}
+  .mat-btn.out{color:var(--danger);}
+
+  .prog-track{
+    width:100%;
+    height:8px;
+    border-radius:999px;
+    background:var(--surface-2);
+    overflow:hidden;
+    margin-top:8px;
+  }
+  .prog-fill{
+    height:100%;
+    background:var(--accent);
+    border-radius:999px;
+    transition:width .2s ease;
+  }
+  .prog-actions{
+    display:flex;
+    gap:6px;
+    margin-top:10px;
+    flex-wrap:wrap;
+  }
+  .prog-btn{
+    padding:7px 11px;
+    border-radius:9px;
+    border:1px solid var(--border);
+    background:var(--surface-2);
+    color:var(--text);
+    font-size:12.5px;
+    font-weight:700;
+    cursor:pointer;
+  }
+
+  /* ---------- Main app ---------- */
+  #app.hidden{display:none;}
+
+  .header{
+    padding:20px 16px 12px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .header h1{font-size:22px; font-weight:800; letter-spacing:-0.01em;}
+  .header .count{
+    font-size:13px;
+    color:var(--text-muted);
+    font-weight:500;
+  }
+
+  .searchbar{
+    margin:0 16px 12px;
+    display:flex;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:10px 14px;
+    gap:8px;
+    align-items:center;
+  }
+  .searchbar input{
+    background:transparent;
+    border:none;
+    outline:none;
+    color:var(--text);
+    font-size:15px;
+    width:100%;
+    font-family:'Inter',sans-serif;
+  }
+  .searchbar input::placeholder{color:var(--text-muted);}
+  .searchbar svg{flex-shrink:0; opacity:.6;}
+
+  .chips{
+    display:flex;
+    gap:8px;
+    overflow-x:auto;
+    padding:0 16px 14px;
+    scrollbar-width:none;
+  }
+  .chips::-webkit-scrollbar{display:none;}
+  .chip{
+    flex-shrink:0;
+    padding:8px 14px;
+    border-radius:999px;
+    border:1px solid var(--border);
+    background:var(--surface);
+    color:var(--text-muted);
+    font-size:13px;
+    font-weight:600;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    cursor:pointer;
+    white-space:nowrap;
+    transition:background .15s, color .15s, border-color .15s;
+  }
+  .chip .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+  .chip.active{
+    background:var(--surface-2);
+    color:var(--text);
+    border-color:var(--border);
+  }
+  .chip .n{
+    font-variant-numeric:tabular-nums;
+    opacity:.75;
+  }
+
+  .list{
+    padding:0 16px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+
+  .empty{
+    text-align:center;
+    padding:60px 24px;
+    color:var(--text-muted);
+  }
+  .empty h3{color:var(--text); font-size:17px; margin-bottom:6px;}
+  .empty p{font-size:14px; line-height:1.5; margin:0;}
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:14px 14px 14px 16px;
+    position:relative;
+    overflow:hidden;
+    cursor:pointer;
+    box-shadow:0 2px 10px rgba(76,63,158,.06);
+  }
+  .card::before{
+    content:"";
+    position:absolute;
+    left:0; top:0; bottom:0;
+    width:4px;
+    background:var(--stripe, var(--s-yangi));
+  }
+  .card-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:10px;
+  }
+  .card-name{font-size:15.5px; font-weight:700;}
+  .card-phone{font-size:13.5px; color:var(--text-muted); margin-top:2px; font-variant-numeric:tabular-nums;}
+  .status-pill{
+    font-size:11.5px;
+    font-weight:700;
+    padding:4px 9px;
+    border-radius:999px;
+    white-space:nowrap;
+    flex-shrink:0;
+  }
+  .card-extra{
+    margin-top:8px;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    font-size:12.5px;
+    color:var(--text-muted);
+  }
+  .card-comment{
+    font-size:13px;
+    color:var(--text-muted);
+    margin-top:8px;
+    line-height:1.4;
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
+  }
+  .card-meta{
+    margin-top:10px;
+    display:flex;
+    justify-content:space-between;
+    gap:8px;
+    font-size:11.5px;
+    color:var(--text-muted);
+  }
+  .card-meta .who{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+
+  .detail{
+    margin-top:12px;
+    padding-top:12px;
+    border-top:1px solid var(--border);
+  }
+  .detail-label{font-size:11.5px; color:var(--text-muted); font-weight:600; margin-bottom:6px;}
+  .status-grid{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    margin-bottom:12px;
+  }
+  .status-btn{
+    font-size:12px;
+    font-weight:600;
+    padding:7px 10px;
+    border-radius:9px;
+    border:1px solid var(--border);
+    background:var(--surface-2);
+    color:var(--text-muted);
+    cursor:pointer;
+  }
+  .status-btn.selected{
+    color:var(--bg);
+    border-color:transparent;
+  }
+  .detail input, .detail textarea{
+    width:100%;
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    border-radius:10px;
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    font-size:13.5px;
+    padding:10px 12px;
+    resize:vertical;
+    outline:none;
+    margin-bottom:10px;
+  }
+  .detail textarea{min-height:56px;}
+  .detail-actions{
+    display:flex;
+    gap:8px;
+    margin-top:2px;
+  }
+  .btn-small{
+    flex:1;
+    padding:9px;
+    border-radius:9px;
+    border:none;
+    font-size:13px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .btn-save{background:var(--accent); color:var(--accent-text);}
+  .btn-delete{background:transparent; color:var(--danger); border:1px solid rgba(240,100,140,.4);}
+
+  .fab{
+    position:fixed;
+    right:16px;
+    bottom:20px;
+    background:var(--accent);
+    color:var(--accent-text);
+    border:none;
+    border-radius:16px;
+    padding:14px 20px;
+    font-size:15px;
+    font-weight:700;
+    font-family:'Inter',sans-serif;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    box-shadow:0 10px 30px rgba(108,93,211,.35);
+    cursor:pointer;
+    z-index:20;
+  }
+
+  .sheet-overlay{
+    position:fixed; inset:0;
+    background:rgba(6,10,20,.6);
+    display:none;
+    align-items:flex-end;
+    z-index:30;
+  }
+  .sheet-overlay.open{display:flex;}
+  .sheet{
+    background:var(--bg);
+    width:100%;
+    border-radius:20px 20px 0 0;
+    padding:20px 18px calc(20px + env(safe-area-inset-bottom));
+    max-height:88vh;
+    overflow-y:auto;
+    border-top:1px solid var(--border);
+    animation:up .2s ease;
+  }
+  @keyframes up{from{transform:translateY(24px); opacity:0;} to{transform:translateY(0); opacity:1;}}
+  .sheet-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:16px;
+  }
+  .sheet-head h2{font-size:18px; font-weight:800;}
+  .sheet-close{
+    background:var(--surface);
+    border:1px solid var(--border);
+    color:var(--text-muted);
+    width:30px; height:30px;
+    border-radius:9px;
+    font-size:16px;
+    cursor:pointer;
+  }
+  .field{margin-bottom:14px;}
+  .field label{
+    display:block;
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--text-muted);
+    margin-bottom:6px;
+  }
+  .field input, .field textarea, .field select{
+    width:100%;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    font-size:15px;
+    padding:12px 13px;
+    outline:none;
+  }
+  .field select{appearance:none;}
+  .field textarea{min-height:64px; resize:vertical;}
+  .field input[type="date"]{color-scheme:dark;}
+  .submit-btn{
+    width:100%;
+    background:var(--accent);
+    color:var(--accent-text);
+    border:none;
+    border-radius:12px;
+    padding:14px;
+    font-size:15px;
+    font-weight:700;
+    font-family:'Inter',sans-serif;
+    cursor:pointer;
+    margin-top:6px;
+  }
+  .submit-btn:disabled{opacity:.6;}
+  .toast{
+    position:fixed;
+    top:16px; left:50%;
+    transform:translateX(-50%);
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:10px 18px;
+    border-radius:10px;
+    font-size:13.5px;
+    font-weight:600;
+    z-index:50;
+    opacity:0;
+    transition:opacity .2s, transform .2s;
+    pointer-events:none;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(6px);}
+  .toast.error{background:#3a1c26; border-color:rgba(240,100,140,.4); color:#ffc7d6;}
+</style>
+</head>
+<body>
+
+<!-- Registration screen -->
+<div class="reg-screen hidden" id="regScreen">
+  <div class="reg-title">Xush kelibsiz</div>
+  <div class="reg-sub">Tizimdan foydalanish uchun avval ro'yxatdan o'ting. Ism va lavozimingizni tanlang.</div>
+
+  <div class="reg-field">
+    <label>Ismingiz</label>
+    <input type="text" id="regName" placeholder="Ism Familiya">
+  </div>
+
+  <div class="reg-field">
+    <label>Lavozimingiz</label>
+    <div class="role-grid" id="roleGrid">
+      <button type="button" class="role-btn" data-role="admin">Rahbar</button>
+      <button type="button" class="role-btn" data-role="sales">Sotuvchi</button>
+      <button type="button" class="role-btn" data-role="warehouse_production">Omborchi/Usta</button>
+      <button type="button" class="role-btn" data-role="finance">Moliyachi</button>
+    </div>
+  </div>
+
+  <button class="reg-submit" id="regSubmit">Ro'yxatdan o'tish</button>
+  <div class="reg-error" id="regError"></div>
+</div>
+
+<div id="app" class="hidden">
+
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-brand"><span class="dot">🔥</span> Lidlar CRM</div>
+
+  <div class="nav-item hidden active" data-tab="dashboard" id="navDashboard"><span class="icon">🏠</span> Bosh sahifa</div>
+  <div class="nav-item" data-tab="leads" id="navLeads"><span class="icon">📋</span> Sotuv</div>
+  <div class="nav-item hidden" data-tab="catalog" id="navCatalog"><span class="icon">📖</span> Katalog</div>
+  <div class="nav-item hidden" data-tab="readystock" id="navReadystock"><span class="icon">✅</span> Tayyor mahsulotlar</div>
+  <div class="nav-item hidden" data-tab="social" id="navSocial"><span class="icon">📲</span> Kanallarga a'zolik</div>
+  <div class="nav-item hidden" data-tab="warehouse" id="navWarehouse"><span class="icon">📦</span> Ombor</div>
+  <div class="nav-item hidden" data-tab="production" id="navProduction"><span class="icon">🏭</span> Ishlab chiqarish</div>
+  <div class="nav-item hidden" data-tab="finance" id="navFinance"><span class="icon">💰</span> Moliya</div>
+  <div class="nav-item hidden" data-tab="debts" id="navDebts"><span class="icon">📑</span> Qarzdorlik</div>
+
+  <div class="sidebar-spacer"></div>
+  <div class="sidebar-profile">
+    <div class="sidebar-avatar" id="sidebarAvatar">?</div>
+    <div>
+      <div class="name" id="sidebarName">—</div>
+      <div class="role" id="sidebarRole">—</div>
+    </div>
+  </div>
+</div>
+
+<div class="topbar">
+  <div class="hamburger" id="hamburgerBtn">☰</div>
+  <div style="flex:1;">
+    <h1 style="font-size:18px;" id="pageTitle">Sotuv</h1>
+    <div id="greeting" style="font-size:12px; color:var(--text-muted);"></div>
+  </div>
+  <div class="count" id="totalCount">0 ta</div>
+</div>
+
+<div class="tab-panel hidden" id="dashboardPanel">
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-label">Umumiy lidlar</div>
+      <div class="stat-value" id="statLeads">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Faol bitimlar</div>
+      <div class="stat-value" id="statActive">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Ombor ogohlantirish</div>
+      <div class="stat-value" id="statStock">—</div>
+      <div class="stat-badge warn" id="statStockBadge" style="display:none;">Diqqat</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">G'alaba foizi</div>
+      <div class="stat-value" id="statWinRate">—</div>
+      <div class="stat-badge good">Yopilgan bitimlar</div>
+    </div>
+  </div>
+  <div class="detail-label" style="padding:0 16px; font-size:14px; color:var(--text);">Sotuvchilar reytingi</div>
+  <div class="mat-card" style="margin:8px 16px;" id="salesRepList"></div>
+</div>
+
+<div class="tab-panel" id="leadsPanel">
+
+<div class="searchbar">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#8C9AB8" stroke-width="2"/><path d="M21 21l-4-4" stroke="#8C9AB8" stroke-width="2" stroke-linecap="round"/></svg>
+  <input id="searchInput" type="text" placeholder="Ism yoki telefon bo'yicha qidirish">
+</div>
+
+<div class="chips" id="chips"></div>
+
+<div class="list" id="list"></div>
+
+<button class="fab" id="fabAdd">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#1A1206" stroke-width="2.5" stroke-linecap="round"/></svg>
+  Yangi lid
+</button>
+
+</div>
+
+<div class="tab-panel hidden" id="catalogPanel">
+  <div class="detail-label" style="padding:0 16px;">Bepul dostavka O'zbekiston bo'ylab</div>
+  <div class="list" id="catalogList" style="padding:0 16px;"></div>
+</div>
+
+<div class="tab-panel hidden" id="readyStockPanel">
+  <div class="detail-label" style="padding:0 16px;">Omborda tayyor turgan kotellar</div>
+  <div class="list" id="readyStockList" style="padding:0 16px;"></div>
+</div>
+
+<div class="tab-panel hidden" id="socialPanel">
+  <div class="searchbar" style="justify-content:flex-end;">
+    <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 16px;" id="fabAddSocial">+ Qo'shish</button>
+  </div>
+  <div class="list" id="socialList" style="padding:0 16px;"></div>
+</div>
+
+<div class="sheet-overlay" id="socialSheetOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2 id="socialSheetTitle">Yangi yozuv</h2>
+      <button class="sheet-close" id="socialSheetClose">✕</button>
+    </div>
+    <div class="field">
+      <label>Mijoz F.I.Sh *</label>
+      <input type="text" id="soName" required>
+    </div>
+    <div class="field">
+      <label>Telefon</label>
+      <input type="tel" id="soPhone">
+    </div>
+    <div class="field">
+      <label>Telegram username</label>
+      <input type="text" id="soTgUser" placeholder="@username">
+    </div>
+    <div class="field">
+      <label>Telegram holati</label>
+      <div class="role-grid" id="soTgStatusGrid">
+        <button type="button" class="role-btn" data-val="member">A'zo</button>
+        <button type="button" class="role-btn" data-val="not_member">A'zo emas</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Instagram username</label>
+      <input type="text" id="soIgUser" placeholder="@username">
+    </div>
+    <div class="field">
+      <label>Instagram holati</label>
+      <div class="role-grid" id="soIgStatusGrid">
+        <button type="button" class="role-btn" data-val="member">A'zo</button>
+        <button type="button" class="role-btn" data-val="not_member">A'zo emas</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Izoh</label>
+      <textarea id="soNotes"></textarea>
+    </div>
+    <button type="button" class="submit-btn" id="soSaveBtn">Saqlash</button>
+  </div>
+</div>
+
+<div class="sheet-overlay" id="editSerialOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Kotelni tahrirlash</h2>
+      <button class="sheet-close" id="editSerialClose">✕</button>
+    </div>
+    <div class="field">
+      <label>Model / nomi</label>
+      <input type="text" id="esName">
+    </div>
+    <div class="field">
+      <label>Seriya raqami</label>
+      <input type="text" id="esSerial">
+    </div>
+    <div class="field">
+      <label>Izoh</label>
+      <textarea id="esNotes"></textarea>
+    </div>
+    <button type="button" class="submit-btn" id="esSaveBtn">Saqlash</button>
+  </div>
+</div>
+
+<div class="tab-panel hidden" id="warehousePanel">
+  <div class="searchbar" style="justify-content:flex-end;">
+    <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 16px;" id="fabAddMaterial">+ Xomashyo qo'shish</button>
+  </div>
+  <div class="list" id="materialsList" style="padding:0 16px;"></div>
+</div>
+
+<div class="tab-panel hidden" id="productionPanel">
+  <div class="searchbar" style="justify-content:space-between; gap:8px;">
+    <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 14px; font-size:13px;" id="fabAddProdItem">+ Yangi kotel (jarayonda)</button>
+  </div>
+  <div class="detail-label" style="padding:0 16px; margin-top:10px;">Tayyorlanayotgan kotellar</div>
+  <div class="list" id="prodItemsList" style="padding:0 16px;"></div>
+
+  <div class="searchbar" style="justify-content:space-between; gap:8px; margin-top:10px;" id="advancedProductionBar">
+    <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 14px; font-size:13px;" id="fabAddProduct">+ Mahsulot (BOM)</button>
+    <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 14px; font-size:13px; background:var(--surface-2); color:var(--text);" id="downloadWarehouseExcel">📊 Ombor Excel</button>
+  </div>
+  <div class="detail-label" style="padding:0 16px; margin-top:10px;" id="advancedProductionLabel">Mahsulotlar va yig'ish (retseptura orqali)</div>
+  <div class="list" id="productsList" style="padding:0 16px;"></div>
+  <div class="detail-label" style="padding:0 16px; margin-top:16px;">Tayyor mahsulotlar (seriyalar)</div>
+  <div class="list" id="serialsList" style="padding:0 16px;"></div>
+</div>
+
+<div class="sheet-overlay" id="prodItemSheetOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2 id="prodItemSheetTitle">Yangi kotel (jarayonda)</h2>
+      <button class="sheet-close" id="prodItemSheetClose">✕</button>
+    </div>
+    <div class="field">
+      <label>Turi</label>
+      <div class="role-grid" id="piCategoryGrid">
+        <button type="button" class="role-btn" data-cat="bunkerlik">Bunkerlik</button>
+        <button type="button" class="role-btn" data-cat="bunkersiz">Bunkersiz</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Kvadratura</label>
+      <div class="role-grid" id="piSizeGrid" style="grid-template-columns:repeat(5,1fr);">
+        <button type="button" class="role-btn" data-size="150">150</button>
+        <button type="button" class="role-btn" data-size="200">200</button>
+        <button type="button" class="role-btn" data-size="300">300</button>
+        <button type="button" class="role-btn" data-size="400">400</button>
+        <button type="button" class="role-btn" data-size="500">500</button>
+      </div>
+    </div>
+    <div class="field" id="piStageField" style="display:none;">
+      <label>Bosqich (to'g'ridan-to'g'ri tanlash)</label>
+      <div class="role-grid" id="piStageGrid" style="grid-template-columns:1fr 1fr;"></div>
+    </div>
+    <div class="field">
+      <label>Izoh</label>
+      <textarea id="piNotes" placeholder="Yetishmayotgan qismlar, holat..."></textarea>
+    </div>
+    <button type="button" class="submit-btn" id="piSubmitBtn">Saqlash</button>
+  </div>
+</div>
+
+<div class="tab-panel hidden" id="financePanel">
+  <div class="searchbar" style="justify-content:space-between; gap:8px;">
+    <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 14px; font-size:13px;" id="fabAddFinance">+ Yozuv qo'shish</button>
+    <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 14px; font-size:13px; background:var(--surface-2); color:var(--text);" id="downloadFinanceExcel">📊 Excel</button>
+  </div>
+  <div class="mat-card" id="pnlCard" style="margin:0 16px 14px;"></div>
+  <div class="detail-label" style="padding:0 16px;">Yozuvlar tarixi</div>
+  <div class="list" id="financeList" style="padding:0 16px;"></div>
+</div>
+
+<div class="tab-panel hidden" id="debtsPanel">
+  <div class="searchbar" style="justify-content:space-between; gap:8px;">
+    <button type="button" class="tab-btn active" style="flex:1;" id="debtsTabDebitor" data-debttype="debitor">Debitorlik</button>
+    <button type="button" class="tab-btn" style="flex:1;" id="debtsTabKreditor" data-debttype="kreditor">Kreditorlik</button>
+  </div>
+  <div class="searchbar" style="justify-content:flex-end;" id="addDebtBar">
+    <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 16px;" id="fabAddDebt">+ Qo'shish</button>
+  </div>
+  <div class="list" id="debtsList" style="padding:0 16px;"></div>
+</div>
+
+<div class="sheet-overlay" id="debtSheetOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2 id="debtSheetTitle">Yangi qarz</h2>
+      <button class="sheet-close" id="debtSheetClose">✕</button>
+    </div>
+    <form id="debtForm">
+      <div class="field">
+        <label id="debtNameLabel">Mijoz F.I.Sh</label>
+        <input type="text" id="dName" required>
+      </div>
+      <div class="field">
+        <label>Telefon</label>
+        <input type="tel" id="dPhone">
+      </div>
+      <div class="field" id="debtItemField" style="display:none;">
+        <label>Olingan xomashyo/tovar</label>
+        <input type="text" id="dItem">
+      </div>
+      <div class="field">
+        <label>Bitim summasi</label>
+        <input type="number" id="dAmount" min="0" step="any" required>
+      </div>
+      <div class="field">
+        <label>Avans (to'langan)</label>
+        <input type="number" id="dAdvance" min="0" step="any">
+      </div>
+      <div class="field">
+        <label>Muddat (deadline)</label>
+        <input type="date" id="dDeadline">
+      </div>
+      <button type="submit" class="submit-btn" id="debtSubmitBtn">Saqlash</button>
+    </form>
+  </div>
+</div>
+
+<div class="sheet-overlay" id="paymentSheetOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>To'lov kiritish</h2>
+      <button class="sheet-close" id="paymentSheetClose">✕</button>
+    </div>
+    <div class="field">
+      <label>To'lov summasi</label>
+      <input type="number" id="payAmount" min="0" step="any">
+    </div>
+    <button type="button" class="submit-btn" id="paySubmitBtn">Tasdiqlash</button>
+  </div>
+</div>
+
+<div class="sheet-overlay" id="sheetOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Yangi lid qo'shish</h2>
+      <button class="sheet-close" id="sheetClose">✕</button>
+    </div>
+    <form id="leadForm">
+      <div class="field">
+        <label>Mijoz ismi *</label>
+        <input type="text" id="fName" placeholder="Mijoz ismi" required>
+      </div>
+      <div class="field">
+        <label>Sana *</label>
+        <input type="date" id="fDate" required>
+      </div>
+      <div class="field">
+        <label>Telefon raqami *</label>
+        <input type="tel" id="fPhone" placeholder="+998 90 123 45 67" required>
+      </div>
+      <div class="field">
+        <label>Manba</label>
+        <select id="fSource">
+          <option value="Instagram">Instagram</option>
+          <option value="Telegram">Telegram</option>
+          <option value="Qo'ng'iroq">Qo'ng'iroq</option>
+          <option value="YouTube">YouTube</option>
+          <option value="Reklama">Reklama</option>
+          <option value="Tavsiya qildi">Tavsiya qildi</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Viloyat</label>
+        <select id="fRegion"><option value="">Tanlang</option></select>
+      </div>
+      <div class="field">
+        <label>Tuman/Shahar</label>
+        <select id="fDistrict"><option value="">Avval viloyatni tanlang</option></select>
+      </div>
+      <div class="field">
+        <label>Manzil (aniq)</label>
+        <input type="text" id="fAddress" placeholder="Ko'cha, mo'ljal...">
+      </div>
+      <div class="field">
+        <label>Mahsulot turi</label>
+        <select id="fProductCategory"><option value="">Tanlang</option></select>
+      </div>
+      <div class="field">
+        <label>Daraja</label>
+        <select id="fProductTier"><option value="">Avval turini tanlang</option></select>
+      </div>
+      <div class="field">
+        <label>Razmer (kv)</label>
+        <select id="fProductSize"><option value="">Avval darajani tanlang</option></select>
+      </div>
+      <div class="field">
+        <label>Konsultatsiya sanasi</label>
+        <input type="date" id="fConsultDate">
+      </div>
+      <div class="field" id="fAssignedField" style="display:none;">
+        <label>Mas'ul sotuvchi</label>
+        <select id="fAssignedSales"><option value="">O'zim (standart)</option></select>
+      </div>
+      <div class="field">
+        <label>Natija / Izoh</label>
+        <textarea id="fComment" placeholder="Suhbat natijasi..."></textarea>
+      </div>
+      <button type="submit" class="submit-btn" id="submitBtn">Saqlash</button>
+    </form>
+  </div>
+</div>
+
+<div class="sheet-overlay" id="materialSheetOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2 id="materialSheetTitle">Yangi xomashyo</h2>
+      <button class="sheet-close" id="materialSheetClose">✕</button>
+    </div>
+    <form id="materialForm">
+      <div class="field">
+        <label>Nomi *</label>
+        <input type="text" id="mName" placeholder="Masalan: Nasos" required>
+      </div>
+      <div class="field">
+        <label>O'lchov birligi *</label>
+        <input type="text" id="mUnit" placeholder="dona / metr / kg" required>
+      </div>
+      <div class="field" id="mQtyField">
+        <label>Boshlang'ich qoldiq</label>
+        <input type="number" id="mQty" placeholder="0" min="0" step="any">
+      </div>
+      <div class="field">
+        <label>Minimal me'yor (ogohlantirish uchun)</label>
+        <input type="number" id="mMinStock" placeholder="0" min="0" step="any">
+      </div>
+      <div class="field">
+        <label>Maksimal me'yor</label>
+        <input type="number" id="mMaxStock" placeholder="0" min="0" step="any">
+      </div>
+      <div class="field">
+        <label>Xarid narxi (birlik uchun)</label>
+        <input type="number" id="mPrice" placeholder="0" min="0" step="any">
+      </div>
+      <button type="submit" class="submit-btn" id="materialSubmitBtn">Saqlash</button>
+    </form>
+  </div>
+</div>
+
+<div class="sheet-overlay" id="adjustSheetOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2 id="adjustTitle">Kirim / Chiqim</h2>
+      <button class="sheet-close" id="adjustSheetClose">✕</button>
+    </div>
+    <form id="adjustForm">
+      <div class="field">
+        <label>Sana</label>
+        <input type="date" id="aDate">
+      </div>
+      <div class="field">
+        <label>Miqdor *</label>
+        <input type="number" id="aQty" placeholder="0" min="0" step="any" required>
+      </div>
+      <div class="field">
+        <label>Izoh</label>
+        <input type="text" id="aNote" placeholder="Ixtiyoriy">
+      </div>
+      <button type="submit" class="submit-btn" id="adjustSubmitBtn">Tasdiqlash</button>
+    </form>
+    <div class="detail-label" style="margin-top:16px;">So'nggi harakatlar</div>
+    <div id="movementsHistory" style="max-height:180px; overflow-y:auto;"></div>
+  </div>
+</div>
+
+<div class="sheet-overlay" id="productSheetOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Yangi mahsulot</h2>
+      <button class="sheet-close" id="productSheetClose">✕</button>
+    </div>
+    <form id="productForm">
+      <div class="field">
+        <label>Nomi *</label>
+        <input type="text" id="pName" placeholder="Masalan: Kotel 24kW" required>
+      </div>
+      <div class="field">
+        <label>Quvvati (kW)</label>
+        <input type="number" id="pPower" placeholder="24" min="0" step="any">
+      </div>
+      <div class="field">
+        <label>Sotish narxi</label>
+        <input type="number" id="pPrice" placeholder="0" min="0" step="any">
+      </div>
+      <div class="field">
+        <label>Tavsif</label>
+        <textarea id="pDesc" placeholder="Ixtiyoriy"></textarea>
+      </div>
+      <button type="submit" class="submit-btn" id="productSubmitBtn">Saqlash</button>
+    </form>
+  </div>
+</div>
+
+<div class="sheet-overlay" id="bomSheetOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2 id="bomTitle">Retseptura</h2>
+      <button class="sheet-close" id="bomSheetClose">✕</button>
+    </div>
+    <div class="detail-label">Xomashyolar va miqdori</div>
+    <div id="bomItemsList"></div>
+    <button type="button" class="mat-btn" id="bomAddRow" style="width:100%; margin:10px 0;">+ Qator qo'shish</button>
+    <button type="button" class="submit-btn" id="bomSaveBtn">Saqlash</button>
+  </div>
+</div>
+
+<div class="sheet-overlay" id="financeSheetOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Yangi moliyaviy yozuv</h2>
+      <button class="sheet-close" id="financeSheetClose">✕</button>
+    </div>
+    <form id="financeForm">
+      <div class="field">
+        <label>Turi *</label>
+        <select id="fType">
+          <option value="expense">Xarajat</option>
+          <option value="income">Tushum</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Kategoriya</label>
+        <input type="text" id="fCategory" placeholder="Masalan: Ish haqi, Ijara...">
+      </div>
+      <div class="field">
+        <label>Summa *</label>
+        <input type="number" id="fAmount" placeholder="0" min="0" step="any" required>
+      </div>
+      <div class="field">
+        <label>Sana</label>
+        <input type="date" id="fDate2">
+      </div>
+      <div class="field">
+        <label>Izoh</label>
+        <input type="text" id="fNote" placeholder="Ixtiyoriy">
+      </div>
+      <button type="submit" class="submit-btn" id="financeSubmitBtn">Saqlash</button>
+    </form>
+  </div>
+</div>
+
+<div class="sheet-overlay" id="assignSerialOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Seriya biriktirish</h2>
+      <button class="sheet-close" id="assignSerialClose">✕</button>
+    </div>
+    <div class="detail-label">Omborda mavjud kotellar</div>
+    <div id="assignSerialList"></div>
+  </div>
+</div>
+
+<div class="sheet-overlay" id="reassignOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Qayta biriktirish</h2>
+      <button class="sheet-close" id="reassignClose">✕</button>
+    </div>
+    <div class="detail-label">Sotuvchini tanlang</div>
+    <div id="reassignList"></div>
+  </div>
+</div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+
+// ---------- Statuses (sales funnel) ----------
+const STATUSES = [
+  { id: 'lead',          label: "Yangi lid",           color: 'var(--s-yangi)' },
+  { id: 'consultation',  label: "Konsultatsiya",       color: 'var(--s-boglanildi)' },
+  { id: 'negotiation',   label: "Muzokarada",          color: 'var(--s-muzokara)' },
+  { id: 'showroom',      label: "Shourumga kelaman",   color: '#E07BC7' },
+  { id: 'contract',      label: "Shartnoma",           color: '#8B7FD9' },
+  { id: 'production',    label: "Ishlab chiqarish",    color: 'var(--s-followup)' },
+  { id: 'closed_won',    label: "Sotildi",             color: 'var(--s-buyurtma)' },
+  { id: 'closed_lost',   label: "Otkaz",               color: 'var(--danger)' },
+];
+const statusById = Object.fromEntries(STATUSES.map(s => [s.id, s]));
+
+// ---------- Backend API ----------
+function authHeaders(json){
+  const h = {};
+  if (tg && tg.initData) h['X-Telegram-Init-Data'] = tg.initData;
+  if (json) h['Content-Type'] = 'application/json';
+  return h;
+}
+const API = {
+  async me(){
+    const res = await fetch('/api/employees/me', { headers: authHeaders() });
+    return res.json();
+  },
+  async register(payload){
+    const res = await fetch('/api/employees', { method:'POST', headers: authHeaders(true), body: JSON.stringify(payload) });
+    return res.json();
+  },
+  async list(){
+    const res = await fetch('/api/leads', { headers: authHeaders() });
+    if (!res.ok) throw new Error('list failed');
+    return res.json();
+  },
+  async create(payload){
+    const res = await fetch('/api/leads', { method:'POST', headers: authHeaders(true), body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'create failed');
+    return data;
+  },
+  async update(id, payload){
+    const res = await fetch('/api/leads/' + id, { method:'PATCH', headers: authHeaders(true), body: JSON.stringify(payload) });
+    if (!res.ok) throw new Error('update failed');
+    return res.json();
+  },
+  async remove(id){
+    const res = await fetch('/api/leads/' + id, { method:'DELETE', headers: authHeaders() });
+    if (!res.ok) throw new Error('delete failed');
+    return res.json();
+  },
+  async materials(){
+    const res = await fetch('/api/materials', { headers: authHeaders() });
+    if (!res.ok) throw new Error('materials failed');
+    return res.json();
+  },
+  async createMaterial(payload){
+    const res = await fetch('/api/materials', { method:'POST', headers: authHeaders(true), body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'create failed');
+    return data;
+  },
+  async adjustMaterial(id, payload){
+    const res = await fetch('/api/materials/' + id + '/adjust', { method:'POST', headers: authHeaders(true), body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'adjust failed');
+    return data;
+  },
+  async removeMaterial(id){
+    const res = await fetch('/api/materials/' + id, { method:'DELETE', headers: authHeaders() });
+    if (!res.ok) throw new Error('delete failed');
+    return res.json();
+  },
+  async products(){
+    const res = await fetch('/api/products', { headers: authHeaders() });
+    if (!res.ok) throw new Error('products failed');
+    return res.json();
+  },
+  async createProduct(payload){
+    const res = await fetch('/api/products', { method:'POST', headers: authHeaders(true), body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'create failed');
+    return data;
+  },
+  async removeProduct(id){
+    const res = await fetch('/api/products/' + id, { method:'DELETE', headers: authHeaders() });
+    if (!res.ok) throw new Error('delete failed');
+    return res.json();
+  },
+  async getBom(productId){
+    const res = await fetch('/api/boms/' + productId, { headers: authHeaders() });
+    if (!res.ok) throw new Error('bom failed');
+    return res.json();
+  },
+  async saveBom(productId, items){
+    const res = await fetch('/api/boms/' + productId, { method:'POST', headers: authHeaders(true), body: JSON.stringify({ items }) });
+    if (!res.ok) throw new Error('save bom failed');
+    return res.json();
+  },
+  async assemble(productId){
+    const res = await fetch('/api/production/assemble', { method:'POST', headers: authHeaders(true), body: JSON.stringify({ productId }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'assemble failed');
+    return data;
+  },
+  async prodItems(){
+    const res = await fetch('/api/production-items', { headers: authHeaders() });
+    if (!res.ok) throw new Error('prodItems failed');
+    return res.json();
+  },
+  async productionStages(){
+    const res = await fetch('/api/production-stages', { headers: authHeaders() });
+    if (!res.ok) throw new Error('stages failed');
+    return res.json();
+  },
+  async createProdItem(payload){
+    const res = await fetch('/api/production-items', { method:'POST', headers: authHeaders(true), body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'create failed');
+    return data;
+  },
+  async updateProdItem(id, payload){
+    const res = await fetch('/api/production-items/' + id, { method:'PATCH', headers: authHeaders(true), body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'update failed');
+    return data;
+  },
+  async removeProdItem(id){
+    const res = await fetch('/api/production-items/' + id, { method:'DELETE', headers: authHeaders() });
+    if (!res.ok) throw new Error('delete failed');
+    return res.json();
+  },
+  async serials(status){
+    const url = status ? '/api/serials?status=' + status : '/api/serials';
+    const res = await fetch(url, { headers: authHeaders() });
+    if (!res.ok) throw new Error('serials failed');
+    return res.json();
+  },
+  async updateSerial(id, payload){
+    const res = await fetch('/api/serials/' + id, { method:'PATCH', headers: authHeaders(true), body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'update failed');
+    return data;
+  },
+  async updateMaterial(id, payload){
+    const res = await fetch('/api/materials/' + id, { method:'PATCH', headers: authHeaders(true), body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'update failed');
+    return data;
+  },
+  async updateFinanceEntry(id, payload){
+    const res = await fetch('/api/finance/entries/' + id, { method:'PATCH', headers: authHeaders(true), body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'update failed');
+    return data;
+  },
+  async social(){
+    const res = await fetch('/api/social-subscriptions', { headers: authHeaders() });
+    if (!res.ok) throw new Error('social failed');
+    return res.json();
+  },
+  async createSocial(payload){
+    const res = await fetch('/api/social-subscriptions', { method:'POST', headers: authHeaders(true), body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'create failed');
+    return data;
+  },
+  async updateSocial(id, payload){
+    const res = await fetch('/api/social-subscriptions/' + id, { method:'PATCH', headers: authHeaders(true), body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'update failed');
+    return data;
+  },
+  async removeSocial(id){
+    const res = await fetch('/api/social-subscriptions/' + id, { method:'DELETE', headers: authHeaders() });
+    if (!res.ok) throw new Error('delete failed');
+    return res.json();
+  },
+  async assignSerial(leadId, serialId){
+    const res = await fetch('/api/leads/' + leadId + '/assign-serial', { method:'POST', headers: authHeaders(true), body: JSON.stringify({ serialId }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'assign failed');
+    return data;
+  },
+  async financeEntries(){
+    const res = await fetch('/api/finance/entries', { headers: authHeaders() });
+    if (!res.ok) throw new Error('finance failed');
+    return res.json();
+  },
+  async createFinanceEntry(payload){
+    const res = await fetch('/api/finance/entries', { method:'POST', headers: authHeaders(true), body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'create failed');
+    return data;
+  },
+  async removeFinanceEntry(id){
+    const res = await fetch('/api/finance/entries/' + id, { method:'DELETE', headers: authHeaders() });
+    if (!res.ok) throw new Error('delete failed');
+    return res.json();
+  },
+  async pnl(){
+    const res = await fetch('/api/finance/pnl', { headers: authHeaders() });
+    if (!res.ok) throw new Error('pnl failed');
+    return res.json();
+  },
+  async debts(type){
+    const url = type ? '/api/debts?type=' + type : '/api/debts';
+    const res = await fetch(url, { headers: authHeaders() });
+    if (!res.ok) throw new Error('debts failed');
+    return res.json();
+  },
+  async createDebt(payload){
+    const res = await fetch('/api/debts', { method:'POST', headers: authHeaders(true), body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'create failed');
+    return data;
+  },
+  async updateDebt(id, payload){
+    const res = await fetch('/api/debts/' + id, { method:'PATCH', headers: authHeaders(true), body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'update failed');
+    return data;
+  },
+  async removeDebt(id){
+    const res = await fetch('/api/debts/' + id, { method:'DELETE', headers: authHeaders() });
+    if (!res.ok) throw new Error('delete failed');
+    return res.json();
+  },
+  async catalog(){
+    const res = await fetch('/api/catalog', { headers: authHeaders() });
+    if (!res.ok) throw new Error('catalog failed');
+    return res.json();
+  },
+  async locations(){
+    const res = await fetch('/api/locations', { headers: authHeaders() });
+    if (!res.ok) throw new Error('locations failed');
+    return res.json();
+  },
+  async employees(role){
+    const url = role ? '/api/employees?role=' + role : '/api/employees';
+    const res = await fetch(url, { headers: authHeaders() });
+    if (!res.ok) throw new Error('employees failed');
+    return res.json();
+  },
+  async reassign(leadId, toTelegramId, toName){
+    const res = await fetch('/api/leads/' + leadId + '/reassign', { method:'POST', headers: authHeaders(true), body: JSON.stringify({ toTelegramId, toName }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'reassign failed');
+    return data;
+  },
+  async analyticsOverview(){
+    const res = await fetch('/api/analytics/overview', { headers: authHeaders() });
+    if (!res.ok) throw new Error('analytics failed');
+    return res.json();
+  },
+  async analyticsSales(){
+    const res = await fetch('/api/analytics/sales', { headers: authHeaders() });
+    if (!res.ok) throw new Error('analytics failed');
+    return res.json();
+  }
+};
+
+let currentEmployee = null;
+let materials = [];
+
+let leads = [];
+let activeFilter = 'all';
+let expandedId = null;
+let searchTerm = '';
+
+// ================= Registration flow =================
+let selectedRole = null;
+
+function initRegistration(){
+  const grid = document.getElementById('roleGrid');
+  grid.querySelectorAll('.role-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selectedRole = btn.dataset.role;
+      grid.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+    });
+  });
+
+  const nameInput = document.getElementById('regName');
+  if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
+    const u = tg.initDataUnsafe.user;
+    nameInput.value = [u.first_name, u.last_name].filter(Boolean).join(' ');
+  }
+
+  document.getElementById('regSubmit').addEventListener('click', async () => {
+    const name = nameInput.value.trim();
+    const errEl = document.getElementById('regError');
+    errEl.textContent = '';
+    if (!name) { errEl.textContent = "Ismingizni kiriting"; return; }
+    if (!selectedRole) { errEl.textContent = "Lavozimingizni tanlang"; return; }
+
+    const btn = document.getElementById('regSubmit');
+    btn.disabled = true;
+    btn.textContent = 'Yuborilmoqda...';
+    try {
+      const result = await API.register({ name, role: selectedRole });
+      if (result.error) {
+        errEl.textContent = result.error;
+        btn.disabled = false;
+        btn.textContent = "Ro'yxatdan o'tish";
+        return;
+      }
+      document.getElementById('regScreen').classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+      currentEmployee = result.employee || null;
+      startApp();
+    } catch (e) {
+      errEl.textContent = "Xatolik yuz berdi, qaytadan urinib ko'ring";
+      btn.disabled = false;
+      btn.textContent = "Ro'yxatdan o'tish";
+    }
+  });
+}
+
+async function checkRegistration(){
+  try {
+    const result = await API.me();
+    if (result.registered) {
+      currentEmployee = result.employee || null;
+      document.getElementById('app').classList.remove('hidden');
+      startApp();
+    } else {
+      initRegistration();
+      document.getElementById('regScreen').classList.remove('hidden');
+    }
+  } catch (e) {
+    // If the check fails, don't block the person from using the app.
+    document.getElementById('app').classList.remove('hidden');
+    startApp();
+  }
+}
+
+// ================= Main app =================
+let appStarted = false;
+async function startApp(){
+  if (appStarted) return;
+  appStarted = true;
+  renderGreeting();
+  initTabs();
+  await loadLeads();
+  render();
+}
+
+function renderGreeting(){
+  if (!currentEmployee) return;
+  const el = document.getElementById('greeting');
+  const roleLabels = { admin: "Rahbar", sales: "Sotuvchi", warehouse_production: "Omborchi/Usta", finance: "Moliyachi" };
+  const roleLabel = roleLabels[currentEmployee.role] || currentEmployee.role;
+  el.textContent = `${roleLabel} paneli`;
+
+  document.getElementById('sidebarName').textContent = currentEmployee.name;
+  document.getElementById('sidebarRole').textContent = roleLabel;
+  document.getElementById('sidebarAvatar').textContent = (currentEmployee.name || '?').trim().charAt(0).toUpperCase();
+}
+
+// ================= Sidebar navigation =================
+const PAGE_TITLES = { dashboard: 'Bosh sahifa', leads: 'Sotuv', catalog: 'Katalog', readystock: 'Tayyor mahsulotlar', social: "Kanallarga a'zolik", warehouse: 'Ombor', production: 'Ishlab chiqarish', finance: 'Moliya', debts: 'Qarzdorlik' };
+
+function openSidebar(){
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebarOverlay').classList.add('open');
+}
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+}
+document.getElementById('hamburgerBtn').addEventListener('click', openSidebar);
+document.getElementById('sidebarOverlay').addEventListener('click', closeSidebar);
+
+function switchTab(tab){
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const navEl = document.getElementById('nav' + tab.charAt(0).toUpperCase() + tab.slice(1));
+  if (navEl) navEl.classList.add('active');
+
+  document.getElementById('dashboardPanel').classList.toggle('hidden', tab !== 'dashboard');
+  document.getElementById('leadsPanel').classList.toggle('hidden', tab !== 'leads');
+  document.getElementById('catalogPanel').classList.toggle('hidden', tab !== 'catalog');
+  document.getElementById('readyStockPanel').classList.toggle('hidden', tab !== 'readystock');
+  document.getElementById('socialPanel').classList.toggle('hidden', tab !== 'social');
+  document.getElementById('warehousePanel').classList.toggle('hidden', tab !== 'warehouse');
+  document.getElementById('productionPanel').classList.toggle('hidden', tab !== 'production');
+  document.getElementById('financePanel').classList.toggle('hidden', tab !== 'finance');
+  document.getElementById('debtsPanel').classList.toggle('hidden', tab !== 'debts');
+  document.getElementById('fabAdd').classList.toggle('hidden', tab !== 'leads');
+  document.getElementById('pageTitle').textContent = PAGE_TITLES[tab] || 'Lidlar';
+
+  if (tab === 'dashboard') loadDashboard();
+  if (tab === 'catalog') loadCatalog();
+  if (tab === 'readystock') loadReadyStock();
+  if (tab === 'social') loadSocial();
+  if (tab === 'warehouse') loadMaterials();
+  if (tab === 'production') { loadProdItems(); loadProducts(); loadSerials(); }
+  if (tab === 'finance') { loadFinance(); loadPnl(); }
+  if (tab === 'debts') loadDebts();
+
+  closeSidebar();
+}
+
+function initTabs(){
+  if (!currentEmployee) return;
+  const role = currentEmployee.role;
+  const showDashboard = role === 'admin';
+  const showCatalog = ['admin', 'sales'].includes(role);
+  const showWarehouse = ['admin', 'warehouse_production'].includes(role);
+  const showProduction = ['admin', 'warehouse_production'].includes(role);
+  const showFinance = ['admin', 'finance'].includes(role);
+  const showDebts = ['admin', 'finance', 'sales'].includes(role);
+  const showReadyStock = ['admin', 'sales', 'warehouse_production'].includes(role);
+  const showSocial = ['admin', 'sales'].includes(role);
+
+  document.getElementById('navDashboard').classList.toggle('hidden', !showDashboard);
+  document.getElementById('navCatalog').classList.toggle('hidden', !showCatalog);
+  document.getElementById('navReadystock').classList.toggle('hidden', !showReadyStock);
+  document.getElementById('navSocial').classList.toggle('hidden', !showSocial);
+  document.getElementById('navWarehouse').classList.toggle('hidden', !showWarehouse);
+  document.getElementById('navProduction').classList.toggle('hidden', !showProduction);
+  document.getElementById('navFinance').classList.toggle('hidden', !showFinance);
+  document.getElementById('navDebts').classList.toggle('hidden', !showDebts);
+
+  // Salespeople only see their own customers' debitor debts — no kreditor tab, no add button.
+  document.getElementById('debtsTabKreditor').classList.toggle('hidden', role === 'sales');
+  document.getElementById('addDebtBar').classList.toggle('hidden', role === 'sales');
+
+  // Usta/Omborchi gets a simplified production view: no BOM/recipe management,
+  // no prices — only the WIP tracker with completion percentage.
+  const isWarehouseOnly = role === 'warehouse_production';
+  document.getElementById('advancedProductionBar').classList.toggle('hidden', isWarehouseOnly);
+  document.getElementById('advancedProductionLabel').classList.toggle('hidden', isWarehouseOnly);
+  document.getElementById('productsList').classList.toggle('hidden', isWarehouseOnly);
+
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+      if (item.classList.contains('hidden')) return;
+      switchTab(item.dataset.tab);
+    });
+  });
+
+  // Admins land on the dashboard by default; everyone else starts on Sotuv.
+  switchTab(showDashboard ? 'dashboard' : 'leads');
+}
+
+// ================= Dashboard =================
+async function loadDashboard(){
+  try {
+    const [overview, reps] = await Promise.all([API.analyticsOverview(), API.analyticsSales()]);
+
+    document.getElementById('statLeads').textContent = overview.totalLeads;
+    document.getElementById('statActive').textContent = overview.activeDeals;
+    document.getElementById('statStock').textContent = overview.stockAlerts;
+    document.getElementById('statStockBadge').style.display = overview.stockAlerts > 0 ? 'inline-block' : 'none';
+    document.getElementById('statWinRate').textContent = overview.winRate + '%';
+
+    const list = document.getElementById('salesRepList');
+    if (!reps.length) {
+      list.innerHTML = `<div class="mat-sub" style="padding:8px;">Hali ma'lumot yo'q.</div>`;
+    } else {
+      list.innerHTML = reps.map(r => `
+        <div class="rep-row">
+          <div>
+            <div class="rep-name">${escapeHtml(r.name)}</div>
+            <div class="rep-stats">
+              Lid: ${r.leadsCount} · Konsultatsiya: ${r.consultationCount} · Muzokara: ${r.negotiationCount} · Yopdi: ${r.closedWonCount}
+            </div>
+          </div>
+          <div class="rep-amount">${r.totalDealAmount.toLocaleString()}</div>
+        </div>
+      `).join('');
+    }
+  } catch (e) {
+    showToast("Statistikani yuklab bo'lmadi", true);
+  }
+}
+
+// ================= Products / BOM / Assembly (production) =================
+let products = [];
+let serials = [];
+let currentBomProductId = null;
+
+async function loadProducts(){
+  try {
+    products = await API.products();
+    renderProducts();
+  } catch (e) {
+    showToast("Mahsulotlarni yuklab bo'lmadi", true);
+  }
+}
+
+async function loadSerials(){
+  try {
+    serials = await API.serials();
+    renderSerials();
+  } catch (e) {
+    showToast("Seriyalarni yuklab bo'lmadi", true);
+  }
+}
+
+function renderProducts(){
+  const list = document.getElementById('productsList');
+  if (!products.length) {
+    list.innerHTML = `<div class="empty"><h3>Mahsulot yo'q</h3><p>Yuqoridagi tugma orqali qo'shing.</p></div>`;
+    return;
+  }
+  list.innerHTML = products.map(p => `
+    <div class="mat-card" data-id="${p.id}">
+      <div class="mat-top">
+        <div>
+          <div class="mat-name">${escapeHtml(p.name)}</div>
+          <div class="mat-sub">${p.powerKw ? p.powerKw + ' kW · ' : ''}Narx: ${p.salePrice}</div>
+        </div>
+      </div>
+      <div class="mat-actions">
+        <button type="button" class="mat-btn" data-action="bom">Retseptura</button>
+        <button type="button" class="mat-btn in" data-action="assemble">🔧 Yig'ish</button>
+        <button type="button" class="mat-btn out" data-action="delete">O'chirish</button>
+      </div>
+    </div>
+  `).join('');
+
+  list.querySelectorAll('.mat-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const card = btn.closest('.mat-card');
+      const id = card.dataset.id;
+      const action = btn.dataset.action;
+      if (action === 'bom') {
+        openBomSheet(id);
+      } else if (action === 'assemble') {
+        btn.disabled = true;
+        try {
+          const serial = await API.assemble(id);
+          serials.unshift(serial);
+          renderSerials();
+          showToast("Yig'ildi: " + serial.serialNumber);
+        } catch (err) {
+          showToast(err.message || "Yig'ib bo'lmadi", true);
+        } finally {
+          btn.disabled = false;
+        }
+      } else if (action === 'delete') {
+        const doDelete = async () => {
+          try {
+            await API.removeProduct(id);
+            products = products.filter(p => p.id !== id);
+            renderProducts();
+            showToast("O'chirildi");
+          } catch (e) {
+            showToast("O'chirib bo'lmadi", true);
+          }
+        };
+        if (tg && tg.showConfirm) tg.showConfirm("O'chirmoqchimisiz?", (ok) => { if (ok) doDelete(); });
+        else if (confirm("O'chirmoqchimisiz?")) doDelete();
+      }
+    });
+  });
+}
+
+function renderSerials(){
+  const list = document.getElementById('serialsList');
+  if (!serials.length) {
+    list.innerHTML = `<div class="empty"><p>Hali yig'ilgan mahsulot yo'q.</p></div>`;
+    return;
+  }
+  const statusLabels = { stock: "Omborda", reserved: "Bron", sold: "Sotilgan" };
+  list.innerHTML = serials.slice(0, 30).map(s => `
+    <div class="mat-card">
+      <div class="mat-top">
+        <div>
+          <div class="mat-name">${escapeHtml(s.serialNumber)}</div>
+          <div class="mat-sub">${escapeHtml(s.productName)} · Tannarx: ${s.cogs.toFixed(0)}</div>
+        </div>
+        <div class="mat-qty">${statusLabels[s.status] || s.status}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+document.getElementById('fabAddProduct').addEventListener('click', () => {
+  document.getElementById('productSheetOverlay').classList.add('open');
+});
+document.getElementById('productSheetClose').addEventListener('click', () => {
+  document.getElementById('productSheetOverlay').classList.remove('open');
+});
+document.getElementById('productForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = document.getElementById('pName').value.trim();
+  const powerKw = document.getElementById('pPower').value || 0;
+  const salePrice = document.getElementById('pPrice').value || 0;
+  const description = document.getElementById('pDesc').value.trim();
+  if (!name) return;
+  const btn = document.getElementById('productSubmitBtn');
+  btn.disabled = true;
+  try {
+    const product = await API.createProduct({ name, powerKw, salePrice, description });
+    products.push(product);
+    renderProducts();
+    e.target.reset();
+    document.getElementById('productSheetOverlay').classList.remove('open');
+    showToast("Mahsulot qo'shildi");
+  } catch (err) {
+    showToast(err.message || "Saqlab bo'lmadi", true);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+async function openBomSheet(productId){
+  currentBomProductId = productId;
+  const product = products.find(p => p.id === productId);
+  document.getElementById('bomTitle').textContent = 'Retseptura: ' + (product ? product.name : '');
+  try {
+    const [bom, mats] = await Promise.all([API.getBom(productId), materials.length ? Promise.resolve(materials) : API.materials()]);
+    materials = mats;
+    renderBomRows(bom.items || []);
+    document.getElementById('bomSheetOverlay').classList.add('open');
+  } catch (e) {
+    showToast("Retsepturani yuklab bo'lmadi", true);
+  }
+}
+document.getElementById('bomSheetClose').addEventListener('click', () => {
+  document.getElementById('bomSheetOverlay').classList.remove('open');
+});
+
+function renderBomRows(items){
+  const container = document.getElementById('bomItemsList');
+  container.innerHTML = '';
+  const rows = items.length ? items : [{ materialId: '', qty: '' }];
+  rows.forEach(item => addBomRow(item.materialId, item.qty));
+}
+
+function addBomRow(materialId, qty){
+  const container = document.getElementById('bomItemsList');
+  const row = document.createElement('div');
+  row.style.display = 'flex';
+  row.style.gap = '8px';
+  row.style.marginBottom = '8px';
+  const options = materials.map(m => `<option value="${m.id}" ${m.id===materialId?'selected':''}>${escapeHtml(m.name)}</option>`).join('');
+  row.innerHTML = `
+    <select class="bom-material" style="flex:2; background:var(--surface-2); border:1px solid var(--border); border-radius:9px; color:var(--text); padding:8px;">
+      <option value="">Tanlang</option>${options}
+    </select>
+    <input type="number" class="bom-qty" placeholder="Miqdor" value="${qty || ''}" min="0" step="any" style="flex:1; background:var(--surface-2); border:1px solid var(--border); border-radius:9px; color:var(--text); padding:8px;">
+    <button type="button" class="mat-btn" style="flex:0 0 auto; padding:8px 10px;" onclick="this.parentElement.remove()">✕</button>
+  `;
+  container.appendChild(row);
+}
+document.getElementById('bomAddRow').addEventListener('click', () => addBomRow());
+document.getElementById('bomSaveBtn').addEventListener('click', async () => {
+  const rows = document.querySelectorAll('#bomItemsList > div');
+  const items = [];
+  rows.forEach(row => {
+    const materialId = row.querySelector('.bom-material').value;
+    const qty = row.querySelector('.bom-qty').value;
+    if (materialId && qty) items.push({ materialId, qty });
+  });
+  try {
+    await API.saveBom(currentBomProductId, items);
+    document.getElementById('bomSheetOverlay').classList.remove('open');
+    showToast('Retseptura saqlandi');
+  } catch (e) {
+    showToast("Saqlab bo'lmadi", true);
+  }
+});
+
+document.getElementById('downloadWarehouseExcel').addEventListener('click', () => {
+  window.open('/api/reports/warehouse/excel?tgid=' + (tg?.initDataUnsafe?.user?.id || ''), '_blank');
+});
+
+// ================= Production items (simple WIP tracker) =================
+let prodItems = [];
+let piSelectedCategory = null;
+let piSelectedSize = null;
+
+async function loadProdItems(){
+  try {
+    await ensureStagesLoaded();
+    prodItems = await API.prodItems();
+    renderProdItems();
+  } catch (e) {
+    showToast("Yuklab bo'lmadi", true);
+  }
+}
+
+const CATEGORY_LABELS = { bunkerlik: "Bunkerlik", bunkersiz: "Bunkersiz" };
+let productionStages = [];
+
+async function ensureStagesLoaded(){
+  if (productionStages.length) return;
+  try {
+    productionStages = await API.productionStages();
+  } catch (e) {
+    productionStages = [];
+  }
+}
+
+function renderProdItems(){
+  const list = document.getElementById('prodItemsList');
+  if (!prodItems.length) {
+    list.innerHTML = `<div class="empty"><p>Hozircha jarayondagi kotel yo'q.</p></div>`;
+    return;
+  }
+  const total = productionStages.length || 9;
+  list.innerHTML = prodItems.map(item => {
+    const idx = item.stageIndex || 0;
+    const stageName = productionStages[idx] || `Bosqich ${idx + 1}`;
+    const pct = Math.round(((idx + 1) / total) * 100);
+    const isLast = idx >= total - 1;
+    return `
+    <div class="mat-card" data-id="${item.id}">
+      <div class="mat-top">
+        <div>
+          <div class="mat-name">${escapeHtml(CATEGORY_LABELS[item.category] || item.category)} ${item.size} kv</div>
+          <div class="mat-sub">${escapeHtml(item.assignedWorker)} · Bosqich ${idx + 1}/${total}</div>
+        </div>
+        <div class="mat-qty">${escapeHtml(stageName)}</div>
+      </div>
+      <div class="prog-track"><div class="prog-fill" style="width:${pct}%;"></div></div>
+      ${item.notes ? `<div class="card-comment" style="margin-top:8px;">${escapeHtml(item.notes)}</div>` : ''}
+      <div class="prog-actions">
+        <button type="button" class="prog-btn" data-action="prev" ${idx === 0 ? 'disabled style="opacity:.4;"' : ''}>← Oldingi</button>
+        <button type="button" class="prog-btn" data-action="next" ${isLast ? 'disabled style="opacity:.4;"' : ''}>${isLast ? 'Tayyor ✓' : 'Keyingi bosqich →'}</button>
+        <button type="button" class="prog-btn" data-action="edit-full">Tahrirlash</button>
+        <button type="button" class="prog-btn" data-action="delete" style="color:var(--danger);">O'chirish</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.prog-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const card = btn.closest('.mat-card');
+      const id = card.dataset.id;
+      const item = prodItems.find(p => p.id === id);
+      if (!item) return;
+
+      if (btn.dataset.action === 'edit-full') {
+        openProdItemSheet(item);
+        return;
+      }
+
+      if (btn.dataset.action === 'delete') {
+        const doDelete = async () => {
+          try {
+            await API.removeProdItem(id);
+            prodItems = prodItems.filter(p => p.id !== id);
+            renderProdItems();
+            showToast("O'chirildi");
+          } catch (e) { showToast("O'chirib bo'lmadi", true); }
+        };
+        if (tg && tg.showConfirm) tg.showConfirm("O'chirmoqchimisiz?", (ok) => { if (ok) doDelete(); });
+        else if (confirm("O'chirmoqchimisiz?")) doDelete();
+        return;
+      }
+
+      if (btn.dataset.action === 'edit-notes') {
+        const newNotes = prompt("Izoh:", item.notes || '');
+        if (newNotes === null) return;
+        try {
+          const updated = await API.updateProdItem(id, { notes: newNotes });
+          Object.assign(item, updated);
+          renderProdItems();
+        } catch (e) { showToast("Saqlab bo'lmadi", true); }
+        return;
+      }
+
+      const total = productionStages.length || 9;
+      let newIdx = item.stageIndex || 0;
+      if (btn.dataset.action === 'next') newIdx = Math.min(total - 1, newIdx + 1);
+      if (btn.dataset.action === 'prev') newIdx = Math.max(0, newIdx - 1);
+
+      try {
+        const updated = await API.updateProdItem(id, { stageIndex: newIdx });
+        if (updated.status === 'completed') {
+          prodItems = prodItems.filter(p => p.id !== id);
+          showToast("Kotel tayyor bo'ldi! Seriya: " + updated.completedSerialNumber);
+          loadSerials();
+        } else {
+          Object.assign(item, updated);
+        }
+        renderProdItems();
+      } catch (e) {
+        showToast("Saqlab bo'lmadi", true);
+      }
+    });
+  });
+}
+
+let piEditingId = null;
+
+function buildStageGrid(selectedIdx){
+  const grid = document.getElementById('piStageGrid');
+  grid.innerHTML = productionStages.map((name, idx) => `
+    <button type="button" class="role-btn ${idx === selectedIdx ? 'selected' : ''}" data-stage="${idx}" style="font-size:12px; padding:10px 6px;">
+      ${idx + 1}. ${escapeHtml(name)}
+    </button>
+  `).join('');
+  grid.querySelectorAll('.role-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      grid.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+    });
+  });
+}
+
+function openProdItemSheet(item){
+  piEditingId = item ? item.id : null;
+  piSelectedCategory = item ? item.category : null;
+  piSelectedSize = item ? String(item.size) : null;
+
+  document.getElementById('prodItemSheetTitle').textContent = item ? "Kotelni tahrirlash" : "Yangi kotel (jarayonda)";
+  document.querySelectorAll('#piCategoryGrid .role-btn').forEach(b => b.classList.toggle('selected', b.dataset.cat === piSelectedCategory));
+  document.querySelectorAll('#piSizeGrid .role-btn').forEach(b => b.classList.toggle('selected', b.dataset.size === piSelectedSize));
+  document.getElementById('piNotes').value = item ? (item.notes || '') : '';
+
+  const stageField = document.getElementById('piStageField');
+  if (item) {
+    stageField.style.display = 'block';
+    buildStageGrid(item.stageIndex || 0);
+  } else {
+    stageField.style.display = 'none';
+  }
+
+  document.getElementById('prodItemSheetOverlay').classList.add('open');
+}
+
+document.getElementById('fabAddProdItem').addEventListener('click', () => {
+  openProdItemSheet(null);
+});
+document.getElementById('prodItemSheetClose').addEventListener('click', () => {
+  document.getElementById('prodItemSheetOverlay').classList.remove('open');
+});
+document.getElementById('piCategoryGrid').querySelectorAll('.role-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    piSelectedCategory = btn.dataset.cat;
+    document.querySelectorAll('#piCategoryGrid .role-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+  });
+});
+document.getElementById('piSizeGrid').querySelectorAll('.role-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    piSelectedSize = btn.dataset.size;
+    document.querySelectorAll('#piSizeGrid .role-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+  });
+});
+document.getElementById('piSubmitBtn').addEventListener('click', async () => {
+  if (!piSelectedCategory || !piSelectedSize) {
+    showToast("Turi va razmerni tanlang", true);
+    return;
+  }
+  const notes = document.getElementById('piNotes').value.trim();
+  const btn = document.getElementById('piSubmitBtn');
+  btn.disabled = true;
+  try {
+    if (piEditingId) {
+      const stageBtn = document.querySelector('#piStageGrid .role-btn.selected');
+      const stageIndex = stageBtn ? Number(stageBtn.dataset.stage) : undefined;
+      const updated = await API.updateProdItem(piEditingId, { category: piSelectedCategory, size: piSelectedSize, notes, stageIndex });
+      if (updated.status === 'completed') {
+        prodItems = prodItems.filter(p => p.id !== piEditingId);
+        showToast("Kotel tayyor bo'ldi! Seriya: " + updated.completedSerialNumber);
+        loadSerials();
+      } else {
+        const idx = prodItems.findIndex(p => p.id === piEditingId);
+        if (idx >= 0) prodItems[idx] = updated;
+      }
+      showToast('Saqlandi');
+    } else {
+      const item = await API.createProdItem({ category: piSelectedCategory, size: piSelectedSize, notes });
+      prodItems.unshift(item);
+      showToast("Qo'shildi");
+    }
+    renderProdItems();
+    document.getElementById('prodItemSheetOverlay').classList.remove('open');
+  } catch (e) {
+    showToast(e.message || "Saqlab bo'lmadi", true);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ================= Finance =================
+// ================= Catalog (knowledge base for sales) =================
+let catalogData = null;
+async function loadCatalog(){
+  if (catalogData) { renderCatalog(); return; }
+  try {
+    catalogData = await API.catalog();
+    renderCatalog();
+  } catch (e) {
+    showToast("Katalogni yuklab bo'lmadi", true);
+  }
+}
+
+function renderCatalog(){
+  const list = document.getElementById('catalogList');
+  if (!catalogData) return;
+  const html = Object.entries(catalogData).map(([catKey, cat]) => {
+    const tiersHtml = Object.entries(cat.tiers).map(([tierKey, tier]) => `
+      <div class="mat-card" style="margin-bottom:8px;">
+        <div class="mat-name">${escapeHtml(tier.label)}</div>
+        <div class="card-comment" style="margin-top:6px;">${escapeHtml(tier.specs)}</div>
+      </div>
+    `).join('');
+    return `
+      <div class="detail-label" style="margin-top:14px; font-size:14px; color:var(--text);">${escapeHtml(cat.label)}</div>
+      <div class="mat-sub" style="margin-bottom:8px;">Razmerlar: ${cat.sizes.join(', ')} kv · Bepul dostavka</div>
+      ${tiersHtml}
+    `;
+  }).join('');
+  list.innerHTML = html;
+}
+
+// ================= Ready stock (finished, unsold kotels) =================
+let readyStock = [];
+
+async function loadReadyStock(){
+  try {
+    readyStock = await API.serials('stock');
+    renderReadyStock();
+  } catch (e) {
+    showToast("Yuklab bo'lmadi", true);
+  }
+}
+
+function renderReadyStock(){
+  const list = document.getElementById('readyStockList');
+  const canEdit = ['admin', 'warehouse_production'].includes(currentEmployee.role);
+  if (!readyStock.length) {
+    list.innerHTML = `<div class="empty"><p>Hozircha tayyor kotel yo'q.</p></div>`;
+    return;
+  }
+  list.innerHTML = readyStock.map(s => `
+    <div class="mat-card" data-id="${s.id}">
+      <div class="mat-top">
+        <div>
+          <div class="mat-name">${escapeHtml(s.serialNumber)}</div>
+          <div class="mat-sub">${escapeHtml(s.productName)}</div>
+        </div>
+        <div class="mat-qty" style="color:var(--s-buyurtma);">Omborda</div>
+      </div>
+      ${s.notes ? `<div class="card-comment" style="margin-top:8px;">${escapeHtml(s.notes)}</div>` : ''}
+      ${canEdit ? `
+        <div class="mat-actions">
+          <button type="button" class="mat-btn" data-action="edit">Tahrirlash</button>
+        </div>
+      ` : ''}
+    </div>
+  `).join('');
+
+  if (canEdit) {
+    list.querySelectorAll('[data-action="edit"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.closest('.mat-card').dataset.id;
+        openEditSerial(id);
+      });
+    });
+  }
+}
+
+let editingSerialId = null;
+function openEditSerial(id){
+  const serial = readyStock.find(s => s.id === id) || serials.find(s => s.id === id);
+  if (!serial) return;
+  editingSerialId = id;
+  document.getElementById('esName').value = serial.productName || '';
+  document.getElementById('esSerial').value = serial.serialNumber || '';
+  document.getElementById('esNotes').value = serial.notes || '';
+  document.getElementById('editSerialOverlay').classList.add('open');
+}
+document.getElementById('editSerialClose').addEventListener('click', () => {
+  document.getElementById('editSerialOverlay').classList.remove('open');
+});
+document.getElementById('esSaveBtn').addEventListener('click', async () => {
+  const productName = document.getElementById('esName').value.trim();
+  const serialNumber = document.getElementById('esSerial').value.trim();
+  const notes = document.getElementById('esNotes').value.trim();
+  try {
+    const updated = await API.updateSerial(editingSerialId, { productName, serialNumber, notes });
+    const idx1 = readyStock.findIndex(s => s.id === editingSerialId);
+    if (idx1 >= 0) readyStock[idx1] = updated;
+    const idx2 = serials.findIndex(s => s.id === editingSerialId);
+    if (idx2 >= 0) serials[idx2] = updated;
+    renderReadyStock();
+    if (typeof renderSerials === 'function') renderSerials();
+    document.getElementById('editSerialOverlay').classList.remove('open');
+    showToast('Saqlandi');
+  } catch (e) {
+    showToast(e.message || "Saqlab bo'lmadi", true);
+  }
+});
+
+// ================= Social subscriptions (Telegram/Instagram tracking) =================
+let socialItems = [];
+let editingSocialId = null;
+let soSelectedTgStatus = 'not_member';
+let soSelectedIgStatus = 'not_member';
+
+async function loadSocial(){
+  try {
+    socialItems = await API.social();
+    renderSocial();
+  } catch (e) {
+    showToast("Yuklab bo'lmadi", true);
+  }
+}
+
+const SOCIAL_STATUS_LABELS = { member: "A'zo", not_member: "A'zo emas" };
+
+function renderSocial(){
+  const list = document.getElementById('socialList');
+  if (!socialItems.length) {
+    list.innerHTML = `<div class="empty"><p>Hozircha yozuv yo'q.</p></div>`;
+    return;
+  }
+  list.innerHTML = socialItems.map(s => `
+    <div class="mat-card" data-id="${s.id}">
+      <div class="mat-top">
+        <div>
+          <div class="mat-name">${escapeHtml(s.customerName)}</div>
+          <div class="mat-sub">${s.phone ? escapeHtml(s.phone) : ''}</div>
+        </div>
+      </div>
+      <div class="card-extra" style="margin-top:8px;">
+        <span>💬 Telegram: ${escapeHtml(s.tgUsername || '—')} · <b style="color:${s.tgStatus === 'member' ? 'var(--s-buyurtma)' : 'var(--danger)'}">${SOCIAL_STATUS_LABELS[s.tgStatus]}</b></span>
+        <span>📷 Instagram: ${escapeHtml(s.igUsername || '—')} · <b style="color:${s.igStatus === 'member' ? 'var(--s-buyurtma)' : 'var(--danger)'}">${SOCIAL_STATUS_LABELS[s.igStatus]}</b></span>
+      </div>
+      ${s.notes ? `<div class="card-comment" style="margin-top:8px;">${escapeHtml(s.notes)}</div>` : ''}
+      <div class="mat-actions">
+        <button type="button" class="mat-btn" data-action="edit">Tahrirlash</button>
+        <button type="button" class="mat-btn out" data-action="delete">O'chirish</button>
+      </div>
+    </div>
+  `).join('');
+
+  list.querySelectorAll('.mat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.closest('.mat-card').dataset.id;
+      if (btn.dataset.action === 'edit') {
+        openSocialSheet(socialItems.find(s => s.id === id));
+      } else {
+        const doDelete = async () => {
+          try {
+            await API.removeSocial(id);
+            socialItems = socialItems.filter(s => s.id !== id);
+            renderSocial();
+            showToast("O'chirildi");
+          } catch (e) { showToast("O'chirib bo'lmadi", true); }
+        };
+        if (tg && tg.showConfirm) tg.showConfirm("O'chirmoqchimisiz?", (ok) => { if (ok) doDelete(); });
+        else if (confirm("O'chirmoqchimisiz?")) doDelete();
+      }
+    });
+  });
+}
+
+function openSocialSheet(item){
+  editingSocialId = item ? item.id : null;
+  document.getElementById('socialSheetTitle').textContent = item ? 'Tahrirlash' : 'Yangi yozuv';
+  document.getElementById('soName').value = item ? item.customerName : '';
+  document.getElementById('soPhone').value = item ? item.phone : '';
+  document.getElementById('soTgUser').value = item ? item.tgUsername : '';
+  document.getElementById('soIgUser').value = item ? item.igUsername : '';
+  document.getElementById('soNotes').value = item ? item.notes : '';
+  soSelectedTgStatus = item ? item.tgStatus : 'not_member';
+  soSelectedIgStatus = item ? item.igStatus : 'not_member';
+  document.querySelectorAll('#soTgStatusGrid .role-btn').forEach(b => b.classList.toggle('selected', b.dataset.val === soSelectedTgStatus));
+  document.querySelectorAll('#soIgStatusGrid .role-btn').forEach(b => b.classList.toggle('selected', b.dataset.val === soSelectedIgStatus));
+  document.getElementById('socialSheetOverlay').classList.add('open');
+}
+document.getElementById('fabAddSocial').addEventListener('click', () => openSocialSheet(null));
+document.getElementById('socialSheetClose').addEventListener('click', () => {
+  document.getElementById('socialSheetOverlay').classList.remove('open');
+});
+document.getElementById('soTgStatusGrid').querySelectorAll('.role-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    soSelectedTgStatus = btn.dataset.val;
+    document.querySelectorAll('#soTgStatusGrid .role-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+  });
+});
+document.getElementById('soIgStatusGrid').querySelectorAll('.role-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    soSelectedIgStatus = btn.dataset.val;
+    document.querySelectorAll('#soIgStatusGrid .role-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+  });
+});
+document.getElementById('soSaveBtn').addEventListener('click', async () => {
+  const customerName = document.getElementById('soName').value.trim();
+  if (!customerName) { showToast("Mijoz ismini kiriting", true); return; }
+  const payload = {
+    customerName,
+    phone: document.getElementById('soPhone').value.trim(),
+    tgUsername: document.getElementById('soTgUser').value.trim(),
+    tgStatus: soSelectedTgStatus,
+    igUsername: document.getElementById('soIgUser').value.trim(),
+    igStatus: soSelectedIgStatus,
+    notes: document.getElementById('soNotes').value.trim(),
+  };
+  const btn = document.getElementById('soSaveBtn');
+  btn.disabled = true;
+  try {
+    if (editingSocialId) {
+      const updated = await API.updateSocial(editingSocialId, payload);
+      const idx = socialItems.findIndex(s => s.id === editingSocialId);
+      if (idx >= 0) socialItems[idx] = updated;
+    } else {
+      const created = await API.createSocial(payload);
+      socialItems.unshift(created);
+    }
+    renderSocial();
+    document.getElementById('socialSheetOverlay').classList.remove('open');
+    showToast('Saqlandi');
+  } catch (e) {
+    showToast(e.message || "Saqlab bo'lmadi", true);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+let financeEntries = [];
+
+async function loadFinance(){
+  try {
+    financeEntries = await API.financeEntries();
+    renderFinance();
+  } catch (e) {
+    showToast("Moliya ma'lumotlarini yuklab bo'lmadi", true);
+  }
+}
+
+async function loadPnl(){
+  try {
+    const pnl = await API.pnl();
+    const card = document.getElementById('pnlCard');
+    card.innerHTML = `
+      <div class="mat-name" style="margin-bottom:8px;">P&L (Foyda-Ziyon)</div>
+      <div class="card-extra">
+        <span>💰 Sotuv tushumi: ${pnl.salesRevenue.toFixed(0)}</span>
+        <span>➕ Boshqa tushum: ${pnl.otherIncome.toFixed(0)}</span>
+        <span>📦 Tannarx (COGS): ${pnl.cogs.toFixed(0)}</span>
+        <span>💸 Operatsion xarajat: ${pnl.opex.toFixed(0)}</span>
+      </div>
+      <div class="mat-qty ${pnl.netProfit < 0 ? 'low' : ''}" style="margin-top:10px; font-size:18px;">
+        Sof foyda: ${pnl.netProfit.toFixed(0)}
+      </div>
+    `;
+  } catch (e) {
+    showToast("P&L hisoblanmadi", true);
+  }
+}
+
+function renderFinance(){
+  const list = document.getElementById('financeList');
+  if (!financeEntries.length) {
+    list.innerHTML = `<div class="empty"><p>Hali yozuv yo'q.</p></div>`;
+    return;
+  }
+  list.innerHTML = financeEntries.map(f => `
+    <div class="mat-card" data-id="${f.id}">
+      <div class="mat-top">
+        <div>
+          <div class="mat-name">${escapeHtml(f.category || (f.type === 'income' ? 'Tushum' : 'Xarajat'))}</div>
+          <div class="mat-sub">${f.date} · ${escapeHtml(f.createdBy)}${f.note ? ' · ' + escapeHtml(f.note) : ''}</div>
+        </div>
+        <div class="mat-qty" style="color:${f.type === 'income' ? 'var(--s-buyurtma)' : 'var(--danger)'}">
+          ${f.type === 'income' ? '+' : '−'}${f.amount}
+        </div>
+      </div>
+      <div class="mat-actions">
+        <button type="button" class="mat-btn out" data-action="delete">O'chirish</button>
+      </div>
+    </div>
+  `).join('');
+
+  list.querySelectorAll('[data-action="delete"]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.closest('.mat-card').dataset.id;
+      try {
+        await API.removeFinanceEntry(id);
+        financeEntries = financeEntries.filter(f => f.id !== id);
+        renderFinance();
+        loadPnl();
+        showToast("O'chirildi");
+      } catch (e) {
+        showToast("O'chirib bo'lmadi", true);
+      }
+    });
+  });
+}
+
+document.getElementById('fabAddFinance').addEventListener('click', () => {
+  document.getElementById('fDate2').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('financeSheetOverlay').classList.add('open');
+});
+document.getElementById('financeSheetClose').addEventListener('click', () => {
+  document.getElementById('financeSheetOverlay').classList.remove('open');
+});
+document.getElementById('financeForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const type = document.getElementById('fType').value;
+  const category = document.getElementById('fCategory').value.trim();
+  const amount = document.getElementById('fAmount').value;
+  const date = document.getElementById('fDate2').value;
+  const note = document.getElementById('fNote').value.trim();
+  if (!amount) return;
+  const btn = document.getElementById('financeSubmitBtn');
+  btn.disabled = true;
+  try {
+    const entry = await API.createFinanceEntry({ type, category, amount, date, note });
+    financeEntries.unshift(entry);
+    renderFinance();
+    loadPnl();
+    e.target.reset();
+    document.getElementById('financeSheetOverlay').classList.remove('open');
+    showToast('Yozuv qo\'shildi');
+  } catch (err) {
+    showToast(err.message || "Saqlab bo'lmadi", true);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('downloadFinanceExcel').addEventListener('click', () => {
+  window.open('/api/reports/finance/excel', '_blank');
+});
+
+// ================= Debts (Debitor / Kreditor) =================
+let debts = [];
+let activeDebtType = 'debitor';
+
+async function loadDebts(){
+  try {
+    debts = await API.debts(currentEmployee.role === 'sales' ? 'debitor' : activeDebtType);
+    renderDebts();
+  } catch (e) {
+    showToast("Yuklab bo'lmadi", true);
+  }
+}
+
+document.getElementById('debtsTabDebitor').addEventListener('click', () => {
+  activeDebtType = 'debitor';
+  document.getElementById('debtsTabDebitor').classList.add('active');
+  document.getElementById('debtsTabKreditor').classList.remove('active');
+  loadDebts();
+});
+document.getElementById('debtsTabKreditor').addEventListener('click', () => {
+  activeDebtType = 'kreditor';
+  document.getElementById('debtsTabKreditor').classList.add('active');
+  document.getElementById('debtsTabDebitor').classList.remove('active');
+  loadDebts();
+});
+
+const DEBT_STATUS_LABELS = { pending: "Kutilmoqda", overdue: "Muddati o'tgan", paid: "To'landi" };
+const DEBT_STATUS_COLORS = { pending: 'var(--s-muzokara)', overdue: 'var(--danger)', paid: 'var(--s-buyurtma)' };
+
+function renderDebts(){
+  const list = document.getElementById('debtsList');
+  if (!debts.length) {
+    list.innerHTML = `<div class="empty"><p>Hozircha qarz yozuvi yo'q.</p></div>`;
+    return;
+  }
+  list.innerHTML = debts.map(d => `
+    <div class="mat-card" data-id="${d.id}">
+      <div class="mat-top">
+        <div>
+          <div class="mat-name">${escapeHtml(d.name)}</div>
+          <div class="mat-sub">${d.phone ? escapeHtml(d.phone) + ' · ' : ''}${d.deadline ? 'Muddat: ' + escapeHtml(d.deadline) : 'Muddatsiz'}</div>
+        </div>
+        <div class="mat-qty" style="color:${DEBT_STATUS_COLORS[d.status]}">${DEBT_STATUS_LABELS[d.status] || d.status}</div>
+      </div>
+      <div class="card-extra" style="margin-top:8px;">
+        <span>💰 Summa: ${d.dealAmount.toLocaleString()}</span>
+        <span>✅ To'landi: ${d.advance.toLocaleString()}</span>
+        <span>🔴 Qoldiq: ${d.remainingAmount.toLocaleString()}</span>
+      </div>
+      ${d.status !== 'paid' && currentEmployee.role !== 'sales' ? `
+        <div class="mat-actions">
+          <button type="button" class="mat-btn in" data-action="pay">To'lov kiritish</button>
+          <button type="button" class="mat-btn out" data-action="delete">O'chirish</button>
+        </div>
+      ` : ''}
+    </div>
+  `).join('');
+
+  list.querySelectorAll('.mat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.closest('.mat-card').dataset.id;
+      if (btn.dataset.action === 'pay') {
+        openPaymentSheet(id);
+      } else if (btn.dataset.action === 'delete') {
+        const doDelete = async () => {
+          try {
+            await API.removeDebt(id);
+            debts = debts.filter(d => d.id !== id);
+            renderDebts();
+            showToast("O'chirildi");
+          } catch (e) { showToast("O'chirib bo'lmadi", true); }
+        };
+        if (tg && tg.showConfirm) tg.showConfirm("O'chirmoqchimisiz?", (ok) => { if (ok) doDelete(); });
+        else if (confirm("O'chirmoqchimisiz?")) doDelete();
+      }
+    });
+  });
+}
+
+document.getElementById('fabAddDebt').addEventListener('click', () => {
+  document.getElementById('debtForm').reset();
+  const isDebitor = activeDebtType === 'debitor';
+  document.getElementById('debtSheetTitle').textContent = isDebitor ? 'Yangi debitorlik' : 'Yangi kreditorlik';
+  document.getElementById('debtNameLabel').textContent = isDebitor ? 'Mijoz F.I.Sh' : "Ta'minotchi nomi";
+  document.getElementById('debtItemField').style.display = isDebitor ? 'none' : 'block';
+  document.getElementById('debtSheetOverlay').classList.add('open');
+});
+document.getElementById('debtSheetClose').addEventListener('click', () => {
+  document.getElementById('debtSheetOverlay').classList.remove('open');
+});
+document.getElementById('debtForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = document.getElementById('dName').value.trim();
+  const phone = document.getElementById('dPhone').value.trim();
+  const supplierItem = document.getElementById('dItem').value.trim();
+  const dealAmount = document.getElementById('dAmount').value;
+  const advance = document.getElementById('dAdvance').value || 0;
+  const deadline = document.getElementById('dDeadline').value;
+  if (!name || !dealAmount) return;
+  const btn = document.getElementById('debtSubmitBtn');
+  btn.disabled = true;
+  try {
+    const debt = await API.createDebt({ type: activeDebtType, name, phone, supplierItem, dealAmount, advance, deadline });
+    debts.unshift(debt);
+    renderDebts();
+    document.getElementById('debtSheetOverlay').classList.remove('open');
+    showToast("Qo'shildi");
+  } catch (err) {
+    showToast(err.message || "Saqlab bo'lmadi", true);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+let paymentDebtId = null;
+function openPaymentSheet(id){
+  paymentDebtId = id;
+  document.getElementById('payAmount').value = '';
+  document.getElementById('paymentSheetOverlay').classList.add('open');
+}
+document.getElementById('paymentSheetClose').addEventListener('click', () => {
+  document.getElementById('paymentSheetOverlay').classList.remove('open');
+});
+document.getElementById('paySubmitBtn').addEventListener('click', async () => {
+  const payment = document.getElementById('payAmount').value;
+  if (!payment || Number(payment) <= 0) return;
+  try {
+    const updated = await API.updateDebt(paymentDebtId, { payment });
+    const idx = debts.findIndex(d => d.id === paymentDebtId);
+    if (idx >= 0) debts[idx] = updated;
+    renderDebts();
+    document.getElementById('paymentSheetOverlay').classList.remove('open');
+    showToast("To'lov qayd etildi");
+  } catch (e) {
+    showToast("Saqlab bo'lmadi", true);
+  }
+});
+
+// ================= Serial assignment (sales) =================
+async function openAssignSerial(leadId, productName){
+  try {
+    const stockSerials = await API.serials('stock');
+    const list = document.getElementById('assignSerialList');
+    if (!stockSerials.length) {
+      list.innerHTML = `<p style="color:var(--text-muted); font-size:14px;">Omborda tayyor mahsulot yo'q.</p>`;
+    } else {
+      list.innerHTML = stockSerials.map(s => `
+        <div class="mat-card" data-sid="${s.id}" style="cursor:pointer;">
+          <div class="mat-top">
+            <div>
+              <div class="mat-name">${escapeHtml(s.serialNumber)}</div>
+              <div class="mat-sub">${escapeHtml(s.productName)}</div>
+            </div>
+          </div>
+        </div>
+      `).join('');
+      list.querySelectorAll('.mat-card').forEach(card => {
+        card.addEventListener('click', async () => {
+          try {
+            const updated = await API.assignSerial(leadId, card.dataset.sid);
+            const lead = leads.find(l => l.id === leadId);
+            if (lead) Object.assign(lead, updated);
+            render();
+            document.getElementById('assignSerialOverlay').classList.remove('open');
+            showToast('Seriya biriktirildi');
+          } catch (err) {
+            showToast(err.message || "Biriktirib bo'lmadi", true);
+          }
+        });
+      });
+    }
+    document.getElementById('assignSerialOverlay').classList.add('open');
+  } catch (e) {
+    showToast("Yuklab bo'lmadi", true);
+  }
+}
+document.getElementById('assignSerialClose').addEventListener('click', () => {
+  document.getElementById('assignSerialOverlay').classList.remove('open');
+});
+
+// ================= Reassign lead to another sales rep =================
+async function openReassignSheet(leadId){
+  try {
+    const salesEmployees = await API.employees('sales');
+    const list = document.getElementById('reassignList');
+    if (!salesEmployees.length) {
+      list.innerHTML = `<p style="color:var(--text-muted); font-size:14px;">Sotuvchilar topilmadi.</p>`;
+    } else {
+      list.innerHTML = salesEmployees.map(emp => `
+        <div class="mat-card" data-tgid="${emp.telegramId}" data-name="${escapeHtml(emp.name)}" style="cursor:pointer;">
+          <div class="mat-name">${escapeHtml(emp.name)}</div>
+        </div>
+      `).join('');
+      list.querySelectorAll('.mat-card').forEach(card => {
+        card.addEventListener('click', async () => {
+          try {
+            const updated = await API.reassign(leadId, card.dataset.tgid, card.dataset.name);
+            const lead = leads.find(l => l.id === leadId);
+            if (lead) Object.assign(lead, updated);
+            render();
+            document.getElementById('reassignOverlay').classList.remove('open');
+            showToast('Qayta biriktirildi');
+          } catch (err) {
+            showToast(err.message || "Biriktirib bo'lmadi", true);
+          }
+        });
+      });
+    }
+    document.getElementById('reassignOverlay').classList.add('open');
+  } catch (e) {
+    showToast("Yuklab bo'lmadi", true);
+  }
+}
+document.getElementById('reassignClose').addEventListener('click', () => {
+  document.getElementById('reassignOverlay').classList.remove('open');
+});
+
+// ================= Materials (warehouse) =================
+
+async function loadMaterials(){
+  try {
+    materials = await API.materials();
+    renderMaterials();
+  } catch (e) {
+    showToast("Ombor ma'lumotlarini yuklab bo'lmadi", true);
+  }
+}
+
+function renderMaterials(){
+  const list = document.getElementById('materialsList');
+  if (!materials.length) {
+    list.innerHTML = `
+      <div class="empty">
+        <h3>Ombor bo'sh</h3>
+        <p>Birinchi xomashyoni qo'shish uchun yuqoridagi tugmani bosing.</p>
+      </div>`;
+    return;
+  }
+  list.innerHTML = materials.map(m => {
+    const low = m.qty <= (m.minStock || 0);
+    return `
+    <div class="mat-card" data-id="${m.id}">
+      <div class="mat-top">
+        <div>
+          <div class="mat-name">${escapeHtml(m.name)}</div>
+          <div class="mat-sub">Min: ${m.minStock} · Max: ${m.maxStock || 0} ${escapeHtml(m.unit)} · Narx: ${m.purchasePrice}</div>
+        </div>
+        <div class="mat-qty ${low ? 'low' : ''}">${m.qty} ${escapeHtml(m.unit)}</div>
+      </div>
+      <div class="mat-actions">
+        <button type="button" class="mat-btn in" data-action="in">+ Kirim</button>
+        <button type="button" class="mat-btn out" data-action="out">− Chiqim</button>
+        <button type="button" class="mat-btn" data-action="edit">Tahrirlash</button>
+        <button type="button" class="mat-btn" data-action="delete">O'chirish</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.mat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const card = btn.closest('.mat-card');
+      const id = card.dataset.id;
+      const action = btn.dataset.action;
+      if (action === 'delete') {
+        const doDelete = async () => {
+          try {
+            await API.removeMaterial(id);
+            materials = materials.filter(m => m.id !== id);
+            renderMaterials();
+            showToast("O'chirildi");
+          } catch (e) {
+            showToast("O'chirib bo'lmadi", true);
+          }
+        };
+        if (tg && tg.showConfirm) {
+          tg.showConfirm("O'chirmoqchimisiz?", (ok) => { if (ok) doDelete(); });
+        } else if (confirm("O'chirmoqchimisiz?")) {
+          doDelete();
+        }
+      } else if (action === 'edit') {
+        openMaterialSheet(materials.find(m => m.id === id));
+      } else {
+        openAdjustSheet(id, action);
+      }
+    });
+  });
+}
+
+let adjustContext = { id: null, type: null };
+function openAdjustSheet(id, type){
+  adjustContext = { id, type };
+  const material = materials.find(m => m.id === id);
+  document.getElementById('adjustTitle').textContent =
+    (type === 'in' ? 'Kirim: ' : 'Chiqim: ') + (material ? material.name : '');
+  document.getElementById('aDate').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('aQty').value = '';
+  document.getElementById('aNote').value = '';
+  renderMovementsHistory(material);
+  document.getElementById('adjustSheetOverlay').classList.add('open');
+}
+function renderMovementsHistory(material){
+  const el = document.getElementById('movementsHistory');
+  const movements = (material && material.movements) || [];
+  if (!movements.length) {
+    el.innerHTML = `<p style="color:var(--text-muted); font-size:12.5px;">Hali harakat yo'q.</p>`;
+    return;
+  }
+  el.innerHTML = movements.map(m => `
+    <div class="mat-sub" style="margin-bottom:6px;">
+      ${m.date} · ${m.type === 'in' ? '📥 Kirim' : '📤 Chiqim'}: ${m.qty} · ${escapeHtml(m.by)}${m.note ? ' · ' + escapeHtml(m.note) : ''}
+    </div>
+  `).join('');
+}
+document.getElementById('adjustSheetClose').addEventListener('click', () => {
+  document.getElementById('adjustSheetOverlay').classList.remove('open');
+});
+document.getElementById('adjustSheetOverlay').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
+});
+document.getElementById('adjustForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const date = document.getElementById('aDate').value;
+  const qty = document.getElementById('aQty').value;
+  const note = document.getElementById('aNote').value.trim();
+  if (!qty || Number(qty) <= 0) return;
+  const btn = document.getElementById('adjustSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Saqlanmoqda...';
+  try {
+    const updated = await API.adjustMaterial(adjustContext.id, { type: adjustContext.type, qty, note, date });
+    const idx = materials.findIndex(m => m.id === adjustContext.id);
+    if (idx >= 0) materials[idx] = updated;
+    renderMaterials();
+    renderMovementsHistory(updated);
+    document.getElementById('adjustSheetOverlay').classList.remove('open');
+    showToast('Saqlandi');
+  } catch (err) {
+    showToast(err.message || "Saqlab bo'lmadi", true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Tasdiqlash';
+  }
+});
+
+let editingMaterialId = null;
+function openMaterialSheet(material){
+  editingMaterialId = material ? material.id : null;
+  document.getElementById('materialSheetTitle').textContent = material ? 'Xomashyoni tahrirlash' : 'Yangi xomashyo';
+  document.getElementById('mQtyField').style.display = material ? 'none' : 'block';
+  document.getElementById('mName').value = material ? material.name : '';
+  document.getElementById('mUnit').value = material ? material.unit : '';
+  document.getElementById('mQty').value = '';
+  document.getElementById('mMinStock').value = material ? material.minStock : '';
+  document.getElementById('mMaxStock').value = material ? material.maxStock : '';
+  document.getElementById('mPrice').value = material ? material.purchasePrice : '';
+  document.getElementById('materialSheetOverlay').classList.add('open');
+}
+document.getElementById('fabAddMaterial').addEventListener('click', () => {
+  openMaterialSheet(null);
+});
+document.getElementById('materialSheetClose').addEventListener('click', () => {
+  document.getElementById('materialSheetOverlay').classList.remove('open');
+});
+document.getElementById('materialSheetOverlay').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
+});
+document.getElementById('materialForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = document.getElementById('mName').value.trim();
+  const unit = document.getElementById('mUnit').value.trim();
+  const qty = document.getElementById('mQty').value || 0;
+  const minStock = document.getElementById('mMinStock').value || 0;
+  const maxStock = document.getElementById('mMaxStock').value || 0;
+  const purchasePrice = document.getElementById('mPrice').value || 0;
+  if (!name || !unit) return;
+  const btn = document.getElementById('materialSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Saqlanmoqda...';
+  try {
+    if (editingMaterialId) {
+      const updated = await API.updateMaterial(editingMaterialId, { name, unit, minStock, maxStock, purchasePrice });
+      const idx = materials.findIndex(m => m.id === editingMaterialId);
+      if (idx >= 0) materials[idx] = updated;
+      showToast('Saqlandi');
+    } else {
+      const material = await API.createMaterial({ name, unit, qty, minStock, maxStock, purchasePrice });
+      materials.push(material);
+      showToast("Xomashyo qo'shildi");
+    }
+    materials.sort((a, b) => a.name.localeCompare(b.name));
+    renderMaterials();
+    e.target.reset();
+    document.getElementById('materialSheetOverlay').classList.remove('open');
+  } catch (err) {
+    showToast(err.message || "Saqlab bo'lmadi", true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Saqlash';
+  }
+});
+
+async function loadLeads(){
+  try {
+    leads = await API.list();
+  } catch (e) {
+    showToast("Ulanishda xatolik. Internetni tekshiring.", true);
+  }
+}
+
+function fmtDate(ts){
+  const d = new Date(ts);
+  return d.toLocaleDateString('uz-UZ', { day:'2-digit', month:'2-digit' }) + ' ' +
+         d.toLocaleTimeString('uz-UZ', { hour:'2-digit', minute:'2-digit' });
+}
+
+function countFor(id){
+  if (id === 'all') return leads.length;
+  return leads.filter(l => l.status === id).length;
+}
+
+function renderChips(){
+  const chips = document.getElementById('chips');
+  const all = [{ id:'all', label:'Hammasi', color:null }, ...STATUSES];
+  chips.innerHTML = all.map(s => `
+    <div class="chip ${activeFilter===s.id?'active':''}" data-filter="${s.id}">
+      ${s.color ? `<span class="dot" style="background:${s.color}"></span>` : ''}
+      ${s.label} <span class="n">${countFor(s.id)}</span>
+    </div>
+  `).join('');
+  chips.querySelectorAll('.chip').forEach(el => {
+    el.addEventListener('click', () => {
+      activeFilter = el.dataset.filter;
+      expandedId = null;
+      render();
+    });
+  });
+}
+
+function filteredLeads(){
+  let arr = leads;
+  if (activeFilter !== 'all') arr = arr.filter(l => l.status === activeFilter);
+  if (searchTerm.trim()) {
+    const q = searchTerm.trim().toLowerCase();
+    arr = arr.filter(l => l.name.toLowerCase().includes(q) || l.phone.includes(q));
+  }
+  return arr;
+}
+
+function renderList(){
+  const list = document.getElementById('list');
+  const arr = filteredLeads();
+
+  if (!arr.length) {
+    list.innerHTML = `
+      <div class="empty">
+        <h3>Bu yerda hali hech narsa yo'q</h3>
+        <p>${leads.length===0 ? "Birinchi lidni qo'shish uchun pastdagi tugmani bosing." : "Ushbu filtr bo'yicha lid topilmadi."}</p>
+      </div>`;
+    return;
+  }
+
+  list.innerHTML = arr.map(lead => {
+    const st = statusById[lead.status] || STATUSES[0];
+    const isOpen = expandedId === lead.id;
+    const whoLine = lead.addedBy === (lead.assignedSalesName || lead.addedBy)
+      ? `Yaratdi: ${escapeHtml(lead.addedBy)}`
+      : `Yaratdi: ${escapeHtml(lead.addedBy)} · Mas'ul: ${escapeHtml(lead.assignedSalesName || '')}`;
+    return `
+    <div class="card" style="--stripe:${st.color}" data-id="${lead.id}">
+      <div class="card-top">
+        <div>
+          <div class="card-name">${escapeHtml(lead.name)}</div>
+          <div class="card-phone">${escapeHtml(lead.phone)}</div>
+        </div>
+        <div class="status-pill" style="background:${st.color}22; color:${st.color}">${st.label}</div>
+      </div>
+      <div class="card-extra">
+        ${lead.leadDate ? `<span>📅 ${escapeHtml(lead.leadDate)}</span>` : ''}
+        ${lead.product ? `<span>🫖 ${escapeHtml(lead.product)}</span>` : ''}
+        ${(lead.region || lead.district) ? `<span>🗺️ ${escapeHtml([lead.region, lead.district].filter(Boolean).join(', '))}</span>` : ''}
+        ${lead.address ? `<span>📍 ${escapeHtml(lead.address)}</span>` : ''}
+        ${lead.source ? `<span>🔗 ${escapeHtml(lead.source)}</span>` : ''}
+        ${lead.consultationDate ? `<span>🗓️ Konsultatsiya: ${escapeHtml(lead.consultationDate)}</span>` : ''}
+      </div>
+      ${lead.comment ? `<div class="card-comment">${escapeHtml(lead.comment)}</div>` : ''}
+      <div class="card-meta">
+        <span class="who">${whoLine}</span>
+        <span>${fmtDate(lead.createdAt)}</span>
+      </div>
+      ${isOpen ? renderDetail(lead) : ''}
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.card').forEach(card => {
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.detail')) return;
+      const id = card.dataset.id;
+      expandedId = expandedId === id ? null : id;
+      render();
+    });
+  });
+
+  attachDetailHandlers();
+}
+
+function renderDetail(lead){
+  return `
+  <div class="detail" onclick="event.stopPropagation()">
+    <div class="detail-label">Bosqichni o'zgartirish</div>
+    <div class="status-grid">
+      ${STATUSES.map(s => `
+        <button type="button" class="status-btn ${lead.status===s.id?'selected':''}"
+          style="${lead.status===s.id ? `background:${s.color}` : ''}"
+          data-action="status" data-status="${s.id}">${s.label}</button>
+      `).join('')}
+    </div>
+    <div class="detail-label">Manzil</div>
+    <input type="text" data-role="address-edit" value="${escapeHtml(lead.address || '')}" placeholder="Manzil">
+    <div class="detail-label">Mahsulot</div>
+    <input type="text" data-role="product-edit" value="${escapeHtml(lead.product || '')}" placeholder="Qanday mahsulot qiziqtirdi">
+    <div class="detail-label">Shartnoma summasi</div>
+    <input type="number" data-role="amount-edit" value="${lead.dealAmount || ''}" placeholder="0" min="0" step="any">
+    ${lead.assignedSerialNumber ? `<div class="detail-label">Biriktirilgan seriya: ${escapeHtml(lead.assignedSerialNumber)}</div>` : ''}
+    <div class="detail-label">Natija</div>
+    <textarea data-role="comment-edit">${escapeHtml(lead.comment || '')}</textarea>
+    <div class="detail-label">Yaratdi: ${escapeHtml(lead.addedBy)} · Mas'ul: ${escapeHtml(lead.assignedSalesName || lead.addedBy)}</div>
+    ${lead.history && lead.history.length ? `
+      <div class="detail-label">Tarix</div>
+      <div style="max-height:120px; overflow-y:auto; margin-bottom:10px;">
+        ${lead.history.slice().reverse().map(h => `
+          <div class="mat-sub" style="margin-bottom:4px;">
+            ${new Date(h.ts).toLocaleString('uz-UZ', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})} —
+            ${escapeHtml(h.by)}: ${h.action === 'status' ? 'bosqich' : h.action === 'reassign' ? 'qayta biriktirish' : 'yaratildi'}
+            ${h.detail ? '(' + escapeHtml(h.detail) + ')' : ''}
+          </div>
+        `).join('')}
+      </div>
+    ` : ''}
+    <div class="detail-actions">
+      <button type="button" class="btn-small btn-save" data-action="save">Saqlash</button>
+      <button type="button" class="btn-small" style="background:var(--surface-2); color:var(--text);" data-action="assign-serial">Seriya biriktirish</button>
+    </div>
+    <div class="detail-actions" style="margin-top:8px;">
+      <button type="button" class="btn-small" style="background:var(--surface-2); color:var(--text);" data-action="reassign">Qayta biriktirish</button>
+      <button type="button" class="btn-small btn-delete" data-action="delete">O'chirish</button>
+    </div>
+  </div>`;
+}
+
+function attachDetailHandlers(){
+  document.querySelectorAll('[data-action="status"]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const card = btn.closest('.card');
+      const id = card.dataset.id;
+      const lead = leads.find(l => l.id === id);
+      const prevStatus = lead.status;
+      lead.status = btn.dataset.status;
+      render();
+      try {
+        const updated = await API.update(id, { status: lead.status });
+        Object.assign(lead, updated);
+        render();
+        showToast("Holat yangilandi: " + statusById[lead.status].label);
+      } catch (e) {
+        lead.status = prevStatus;
+        render();
+        showToast("Saqlab bo'lmadi, qaytadan urinib ko'ring", true);
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-action="save"]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const card = btn.closest('.card');
+      const id = card.dataset.id;
+      const lead = leads.find(l => l.id === id);
+      const comment = card.querySelector('[data-role="comment-edit"]').value.trim();
+      const address = card.querySelector('[data-role="address-edit"]').value.trim();
+      const product = card.querySelector('[data-role="product-edit"]').value.trim();
+      const dealAmount = card.querySelector('[data-role="amount-edit"]').value || 0;
+      try {
+        const updated = await API.update(id, { comment, address, product, dealAmount });
+        Object.assign(lead, updated);
+        showToast("Saqlandi");
+        render();
+      } catch (e) {
+        showToast("Saqlab bo'lmadi, qaytadan urinib ko'ring", true);
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-action="assign-serial"]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const card = btn.closest('.card');
+      const id = card.dataset.id;
+      const lead = leads.find(l => l.id === id);
+      openAssignSerial(id, lead ? lead.product : '');
+    });
+  });
+
+  document.querySelectorAll('[data-action="reassign"]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const card = btn.closest('.card');
+      const id = card.dataset.id;
+      openReassignSheet(id);
+    });
+  });
+
+  document.querySelectorAll('[data-action="delete"]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const card = btn.closest('.card');
+      const id = card.dataset.id;
+      const doDelete = async () => {
+        try {
+          await API.remove(id);
+          leads = leads.filter(l => l.id !== id);
+          expandedId = null;
+          render();
+          showToast("Lid o'chirildi");
+        } catch (e) {
+          showToast("O'chirib bo'lmadi, qaytadan urinib ko'ring", true);
+        }
+      };
+      if (tg && tg.showConfirm) {
+        tg.showConfirm("Bu lidni o'chirmoqchimisiz?", (ok) => { if (ok) doDelete(); });
+      } else if (confirm("Bu lidni o'chirmoqchimisiz?")) {
+        doDelete();
+      }
+    });
+  });
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str == null ? '' : str;
+  return div.innerHTML;
+}
+
+function render(){
+  document.getElementById('totalCount').textContent = leads.length + " ta";
+  renderChips();
+  renderList();
+}
+
+function showToast(msg, isError){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.toggle('error', !!isError);
+  t.classList.add('show');
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ---------- Add lead sheet ----------
+const overlay = document.getElementById('sheetOverlay');
+
+let regionsData = null;
+async function ensureRegionsLoaded(){
+  if (regionsData) return;
+  try {
+    regionsData = await API.locations();
+    const regionSelect = document.getElementById('fRegion');
+    regionSelect.innerHTML = '<option value="">Tanlang</option>' +
+      Object.keys(regionsData).map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
+  } catch (e) {
+    // Non-fatal: region/district stay optional if this fails to load.
+  }
+}
+document.getElementById('fRegion').addEventListener('change', (e) => {
+  const districtSelect = document.getElementById('fDistrict');
+  const region = e.target.value;
+  const districts = (regionsData && regionsData[region]) || [];
+  districtSelect.innerHTML = '<option value="">Tanlang</option>' +
+    districts.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+});
+
+async function ensureCatalogLoadedForForm(){
+  if (catalogData) { populateProductCategorySelect(); return; }
+  try {
+    catalogData = await API.catalog();
+    populateProductCategorySelect();
+  } catch (e) {
+    // Non-fatal: product selection stays optional if this fails to load.
+  }
+}
+function populateProductCategorySelect(){
+  if (!catalogData) return;
+  const sel = document.getElementById('fProductCategory');
+  sel.innerHTML = '<option value="">Tanlang</option>' +
+    Object.entries(catalogData).map(([key, cat]) => `<option value="${key}">${escapeHtml(cat.label)}</option>`).join('');
+}
+document.getElementById('fProductCategory').addEventListener('change', (e) => {
+  const catKey = e.target.value;
+  const tierSelect = document.getElementById('fProductTier');
+  const sizeSelect = document.getElementById('fProductSize');
+  const cat = catalogData && catalogData[catKey];
+  if (!cat) {
+    tierSelect.innerHTML = '<option value="">Avval turini tanlang</option>';
+    sizeSelect.innerHTML = '<option value="">Avval darajani tanlang</option>';
+    return;
+  }
+  tierSelect.innerHTML = '<option value="">Tanlang</option>' +
+    Object.entries(cat.tiers).map(([key, t]) => `<option value="${key}">${escapeHtml(t.label)}</option>`).join('');
+  sizeSelect.innerHTML = '<option value="">Tanlang</option>' +
+    cat.sizes.map(s => `<option value="${s}">${s} kv</option>`).join('');
+});
+
+document.getElementById('fabAdd').addEventListener('click', () => {
+  overlay.classList.add('open');
+  document.getElementById('fDate').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('fName').focus();
+  ensureRegionsLoaded();
+  ensureCatalogLoadedForForm();
+  ensureAssignedSalesField();
+});
+document.getElementById('sheetClose').addEventListener('click', () => overlay.classList.remove('open'));
+overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('open'); });
+
+async function ensureAssignedSalesField(){
+  // Only admins get to pick a different responsible salesperson when logging a lead.
+  if (!currentEmployee || currentEmployee.role !== 'admin') return;
+  const field = document.getElementById('fAssignedField');
+  field.style.display = 'block';
+  try {
+    const salesEmployees = await API.employees('sales');
+    const sel = document.getElementById('fAssignedSales');
+    sel.innerHTML = '<option value="">O\'zim (standart)</option>' +
+      salesEmployees.map(emp => `<option value="${emp.telegramId}" data-name="${escapeHtml(emp.name)}">${escapeHtml(emp.name)}</option>`).join('');
+  } catch (e) {
+    // Non-fatal: leaves the field with just the default option.
+  }
+}
+
+document.getElementById('leadForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = document.getElementById('fName').value.trim();
+  const leadDate = document.getElementById('fDate').value;
+  const phone = document.getElementById('fPhone').value.trim();
+  const source = document.getElementById('fSource').value;
+  const region = document.getElementById('fRegion').value;
+  const district = document.getElementById('fDistrict').value;
+  const address = document.getElementById('fAddress').value.trim();
+  const productCategory = document.getElementById('fProductCategory').value;
+  const productTier = document.getElementById('fProductTier').value;
+  const productSize = document.getElementById('fProductSize').value;
+  const consultationDate = document.getElementById('fConsultDate').value;
+  const comment = document.getElementById('fComment').value.trim();
+  const assignedSelect = document.getElementById('fAssignedSales');
+  const assignedOption = assignedSelect.options[assignedSelect.selectedIndex];
+  const assignedSalesTelegramId = assignedSelect.value || undefined;
+  const assignedSalesName = assignedSelect.value ? assignedOption.dataset.name : undefined;
+  if (!name || !phone) return;
+
+  const submitBtn = document.getElementById('submitBtn');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Saqlanmoqda...';
+  try {
+    const lead = await API.create({
+      name, phone, source, region, district, address,
+      productCategory, productTier, productSize, consultationDate, comment, leadDate,
+      assignedSalesTelegramId, assignedSalesName,
+    });
+    leads.unshift(lead);
+    e.target.reset();
+    overlay.classList.remove('open');
+    activeFilter = 'all';
+    render();
+    showToast("Lid qo'shildi");
+    if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+  } catch (err) {
+    showToast(err.message || "Saqlab bo'lmadi, qaytadan urinib ko'ring", true);
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Saqlash';
+  }
+});
+
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  searchTerm = e.target.value;
+  renderList();
+});
+
+// ---------- Init ----------
+checkRegistration();
+</script>
+</body>
+</html>
