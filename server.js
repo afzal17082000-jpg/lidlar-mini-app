@@ -16,6 +16,7 @@ const {
   getDebtsCollection,
   getSocialSubscriptionsCollection,
   getCallLogsCollection,
+  getServiceCustomersCollection,
 } = require('./db');
 
 const app = express();
@@ -483,6 +484,34 @@ app.patch('/api/leads/:id', async (req, res) => {
           `🎉 <b>Sotuv yopildi!</b>\n👤 ${escapeHtmlServer(updated.name)}\n💰 Summa: ${updated.dealAmount || 0}\n` +
           (updated.assignedSerialNumber ? `🔢 Seriya: ${escapeHtmlServer(updated.assignedSerialNumber)}` : '')
         );
+
+        // Auto-migrate to the After-Sales Service list.
+        try {
+          const serviceCol = await getServiceCustomersCollection();
+          const existing = await serviceCol.findOne({ leadId: updated.id });
+          if (!existing) {
+            await serviceCol.insertOne({
+              id: uid('svc'),
+              leadId: updated.id,
+              customerName: updated.name,
+              phone: updated.phone,
+              region: updated.region || '',
+              district: updated.district || '',
+              product: updated.product || '',
+              serialNumber: updated.assignedSerialNumber || '',
+              condition: "A'lo",
+              followUpDate: '',
+              staffNotes: '',
+              customerFeedback: '',
+              assignedSalesName: updated.assignedSalesName || '',
+              assignedSalesTelegramId: updated.assignedSalesTelegramId || null,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+            });
+          }
+        } catch (e) {
+          console.error('Servis mijozini yaratishda xatolik:', e.message);
+        }
       }
 
       if (update.status === 'closed_lost' && updated.assignedSerialId) {
@@ -1356,31 +1385,50 @@ async function analyzeCallWithGemini(buffer, mimeType) {
     `  "key_objections": "mijozning asosiy e'tirozlari yoki savollari, o'zbek tilida"\n` +
     `}`;
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { text: prompt },
-            { inline_data: { mime_type: mimeType || 'audio/mpeg', data: base64Audio } },
-          ],
-        }],
-        generationConfig: { response_mime_type: 'application/json' },
-      }),
-    }
-  );
+  const requestBody = JSON.stringify({
+    contents: [{
+      parts: [
+        { text: prompt },
+        { inline_data: { mime_type: mimeType || 'audio/mpeg', data: base64Audio } },
+      ],
+    }],
+    generationConfig: { response_mime_type: 'application/json' },
+  });
 
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error('Gemini API xatosi: ' + errText.slice(0, 200));
+  // Gemini occasionally returns 503 "model overloaded" — retry a few times
+  // with backoff before giving up, since this is usually transient.
+  const MAX_ATTEMPTS = 3;
+  let lastError;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: requestBody }
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        const textOut = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!textOut) throw new Error('Gemini javob bermadi');
+        return JSON.parse(textOut);
+      }
+
+      const errText = await res.text();
+      const isOverloaded = res.status === 503 || res.status === 429;
+      lastError = new Error(
+        isOverloaded
+          ? "Gemini serveri hozircha band. Bir necha daqiqadan so'ng qayta urinib ko'ring."
+          : 'Gemini API xatosi: ' + errText.slice(0, 200)
+      );
+      if (!isOverloaded || attempt === MAX_ATTEMPTS) throw lastError;
+    } catch (e) {
+      lastError = e;
+      if (attempt === MAX_ATTEMPTS) throw lastError;
+    }
+    await new Promise(r => setTimeout(r, attempt * 3000)); // 3s, 6s backoff between retries
   }
-  const data = await res.json();
-  const textOut = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!textOut) throw new Error('Gemini javob bermadi');
-  return JSON.parse(textOut);
+  throw lastError;
 }
 
 app.post('/api/calls/upload', attachEmployee, requireRole('admin', 'sales'), upload.single('audio'), async (req, res) => {
@@ -1476,6 +1524,90 @@ app.patch('/api/calls/:id', attachEmployee, requireRole('admin', 'sales'), async
 app.delete('/api/calls/:id', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
   try {
     const col = await getCallLogsCollection();
+    await col.deleteOne({ id: req.params.id });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "O'chirishda xatolik" });
+  }
+});
+
+// ================= After-Sales Service =================
+
+app.get('/api/service', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
+  try {
+    const col = await getServiceCustomersCollection();
+    const items = await col.find({}, { projection: { _id: 0 } }).sort({ createdAt: -1 }).toArray();
+    res.json(items);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Bazaga ulanishda xatolik' });
+  }
+});
+
+app.post('/api/service', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
+  const { customerName, phone, region, district, product, serialNumber, condition, followUpDate, staffNotes, customerFeedback } = req.body || {};
+  if (!customerName) return res.status(400).json({ error: 'Mijoz ismi majburiy' });
+  const employeeName = getEmployeeName(req);
+  const item = {
+    id: uid('svc'),
+    leadId: null,
+    customerName: String(customerName).trim(),
+    phone: phone || '',
+    region: region || '',
+    district: district || '',
+    product: product || '',
+    serialNumber: serialNumber || '',
+    condition: condition || "A'lo",
+    followUpDate: followUpDate || '',
+    staffNotes: staffNotes || '',
+    customerFeedback: customerFeedback || '',
+    assignedSalesName: employeeName,
+    assignedSalesTelegramId: req.employee.telegramId,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+  try {
+    const col = await getServiceCustomersCollection();
+    await col.insertOne({ ...item });
+    res.json(item);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Saqlashda xatolik' });
+  }
+});
+
+app.patch('/api/service/:id', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
+  try {
+    const col = await getServiceCustomersCollection();
+    const update = { updatedAt: Date.now() };
+    if (typeof req.body.customerName === 'string') update.customerName = req.body.customerName.trim();
+    if (typeof req.body.phone === 'string') update.phone = req.body.phone;
+    if (typeof req.body.region === 'string') update.region = req.body.region;
+    if (typeof req.body.district === 'string') update.district = req.body.district;
+    if (typeof req.body.product === 'string') update.product = req.body.product;
+    if (typeof req.body.serialNumber === 'string') update.serialNumber = req.body.serialNumber;
+    if (typeof req.body.condition === 'string') update.condition = req.body.condition;
+    if (typeof req.body.followUpDate === 'string') update.followUpDate = req.body.followUpDate;
+    if (typeof req.body.staffNotes === 'string') update.staffNotes = req.body.staffNotes;
+    if (typeof req.body.customerFeedback === 'string') update.customerFeedback = req.body.customerFeedback;
+
+    const updated = await col.findOneAndUpdate(
+      { id: req.params.id },
+      { $set: update },
+      { returnDocument: 'after', projection: { _id: 0 } }
+    );
+    if (!updated) return res.status(404).json({ error: 'Topilmadi' });
+    res.json(updated);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Yangilashda xatolik' });
+  }
+});
+
+app.delete('/api/service/:id', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
+  try {
+    const col = await getServiceCustomersCollection();
     await col.deleteOne({ id: req.params.id });
     res.json({ ok: true });
   } catch (e) {
