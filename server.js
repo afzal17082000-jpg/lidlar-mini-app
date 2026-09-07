@@ -3,6 +3,7 @@ const cors = require('cors');
 const crypto = require('crypto');
 const path = require('path');
 const ExcelJS = require('exceljs');
+const multer = require('multer');
 const {
   getLeadsCollection,
   getEmployeesCollection,
@@ -14,6 +15,7 @@ const {
   getFinanceCollection,
   getDebtsCollection,
   getSocialSubscriptionsCollection,
+  getCallLogsCollection,
 } = require('./db');
 
 const app = express();
@@ -23,6 +25,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const BOT_TOKEN = process.env.BOT_TOKEN || '';
 const GROUP_CHAT_ID = process.env.GROUP_CHAT_ID || '';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } }); // 25MB max
 
 // ================= Telegram auth helpers =================
 
@@ -1329,6 +1333,157 @@ app.delete('/api/social-subscriptions/:id', attachEmployee, requireRole('admin',
   }
 });
 
+// ================= AI Call Analyzer (Google Gemini) =================
+// Uploads an audio recording, sends it directly to Gemini (which handles
+// speech-to-text and analysis in one call), and stores the structured result.
+
+const CALL_STAGE_OPTIONS = Object.keys(STATUS_LABELS).join(', ');
+
+async function analyzeCallWithGemini(buffer, mimeType) {
+  if (!GEMINI_API_KEY) {
+    throw new Error('GEMINI_API_KEY sozlanmagan');
+  }
+  const base64Audio = buffer.toString('base64');
+  const prompt =
+    `Bu sotuvchi va mijoz o'rtasidagi telefon suhbati audiosi (o'zbek tilida). ` +
+    `Audioni tinglab, quyidagi JSON formatida javob ber, boshqa hech qanday matn qo'shma:\n` +
+    `{\n` +
+    `  "transcription": "suhbatning to'liq matni",\n` +
+    `  "client_sentiment": "Positive" | "Neutral" | "Negative",\n` +
+    `  "seller_score": 1 dan 10 gacha son (sotuvchining muomalasi va skriptga amal qilishi bahosi),\n` +
+    `  "summary": "suhbat mazmuni 3-4 gapda, o'zbek tilida",\n` +
+    `  "recommended_stage": quyidagilardan biri: ${CALL_STAGE_OPTIONS},\n` +
+    `  "key_objections": "mijozning asosiy e'tirozlari yoki savollari, o'zbek tilida"\n` +
+    `}`;
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { text: prompt },
+            { inline_data: { mime_type: mimeType || 'audio/mpeg', data: base64Audio } },
+          ],
+        }],
+        generationConfig: { response_mime_type: 'application/json' },
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error('Gemini API xatosi: ' + errText.slice(0, 200));
+  }
+  const data = await res.json();
+  const textOut = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!textOut) throw new Error('Gemini javob bermadi');
+  return JSON.parse(textOut);
+}
+
+app.post('/api/calls/upload', attachEmployee, requireRole('admin', 'sales'), upload.single('audio'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Audio fayl topilmadi' });
+  const { leadId } = req.body || {};
+  const employeeName = getEmployeeName(req);
+
+  try {
+    const analysis = await analyzeCallWithGemini(req.file.buffer, req.file.mimetype);
+
+    const callLog = {
+      id: uid('call'),
+      leadId: leadId || null,
+      sellerName: employeeName,
+      sellerTelegramId: req.employee.telegramId,
+      transcription: analysis.transcription || '',
+      clientSentiment: analysis.client_sentiment || 'Neutral',
+      sellerScore: Number(analysis.seller_score) || 0,
+      summary: analysis.summary || '',
+      recommendedStage: STATUS_LABELS[analysis.recommended_stage] ? analysis.recommended_stage : '',
+      keyObjections: analysis.key_objections || '',
+      notes: '',
+      createdAt: Date.now(),
+    };
+
+    const col = await getCallLogsCollection();
+    await col.insertOne({ ...callLog });
+
+    // Auto-update the linked deal's stage and log it, if a valid lead + stage were given.
+    if (leadId && callLog.recommendedStage) {
+      const leadsCol = await getLeadsCollection();
+      const lead = await leadsCol.findOne({ id: leadId });
+      if (lead && lead.status !== callLog.recommendedStage) {
+        await leadsCol.updateOne(
+          { id: leadId },
+          {
+            $set: { status: callLog.recommendedStage, updatedBy: employeeName, updatedAt: Date.now() },
+            $push: { history: {
+              ts: Date.now(), by: employeeName, action: 'status',
+              detail: `AI tahlili: ${STATUS_LABELS[lead.status] || lead.status} → ${STATUS_LABELS[callLog.recommendedStage]}`,
+            } },
+          }
+        );
+        notifyGroup(
+          `🤖 <b>AI qo'ng'iroq tahlili</b>\n👤 ${escapeHtmlServer(lead.name)}\n` +
+          `📊 Baho: ${callLog.sellerScore}/10 · Kayfiyat: ${escapeHtmlServer(callLog.clientSentiment)}\n` +
+          `📝 ${escapeHtmlServer(callLog.summary)}\n` +
+          `➡️ Yangi bosqich: ${escapeHtmlServer(STATUS_LABELS[callLog.recommendedStage])}`
+        );
+      }
+    }
+
+    res.json(callLog);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: e.message || 'Tahlil qilishda xatolik' });
+  }
+});
+
+app.get('/api/calls', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
+  try {
+    const col = await getCallLogsCollection();
+    const filter = {};
+    if (req.employee.role === 'sales') filter.sellerTelegramId = req.employee.telegramId;
+    const logs = await col.find(filter, { projection: { _id: 0 } }).sort({ createdAt: -1 }).toArray();
+    res.json(logs);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Bazaga ulanishda xatolik' });
+  }
+});
+
+app.patch('/api/calls/:id', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
+  try {
+    const col = await getCallLogsCollection();
+    const update = { updatedAt: Date.now() };
+    if (typeof req.body.notes === 'string') update.notes = req.body.notes;
+    if (typeof req.body.summary === 'string') update.summary = req.body.summary;
+
+    const updated = await col.findOneAndUpdate(
+      { id: req.params.id },
+      { $set: update },
+      { returnDocument: 'after', projection: { _id: 0 } }
+    );
+    if (!updated) return res.status(404).json({ error: 'Topilmadi' });
+    res.json(updated);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Yangilashda xatolik' });
+  }
+});
+
+app.delete('/api/calls/:id', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
+  try {
+    const col = await getCallLogsCollection();
+    await col.deleteOne({ id: req.params.id });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "O'chirishda xatolik" });
+  }
+});
+
 // ================= Excel reports =================
 
 app.get('/api/reports/sales/excel', attachEmployee, requireRole('admin', 'finance'), async (req, res) => {
@@ -1424,6 +1579,39 @@ app.get('/api/reports/finance/excel', attachEmployee, requireRole('admin', 'fina
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="moliya.xlsx"');
+    await wb.xlsx.write(res);
+    res.end();
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Hisobot yaratishda xatolik' });
+  }
+});
+
+app.get('/api/reports/calls/excel', attachEmployee, requireRole('admin'), async (req, res) => {
+  try {
+    const col = await getCallLogsCollection();
+    const logs = await col.find({}, { projection: { _id: 0 } }).sort({ createdAt: -1 }).toArray();
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Zvonoklar');
+    ws.columns = [
+      { header: 'Sana', key: 'createdAtStr', width: 16 },
+      { header: 'Sotuvchi', key: 'sellerName', width: 18 },
+      { header: 'Baho (1-10)', key: 'sellerScore', width: 12 },
+      { header: 'Kayfiyat', key: 'clientSentiment', width: 12 },
+      { header: 'Tavsiya etilgan bosqich', key: 'recommendedStage', width: 20 },
+      { header: 'Mazmuni', key: 'summary', width: 40 },
+      { header: "E'tirozlar", key: 'keyObjections', width: 30 },
+    ];
+    logs.forEach(l => ws.addRow({
+      ...l,
+      createdAtStr: new Date(l.createdAt).toLocaleString('uz-UZ'),
+      recommendedStage: STATUS_LABELS[l.recommendedStage] || l.recommendedStage,
+    }));
+    ws.getRow(1).font = { bold: true };
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="zvonoklar.xlsx"');
     await wb.xlsx.write(res);
     res.end();
   } catch (e) {
