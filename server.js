@@ -1109,7 +1109,7 @@ app.get('/api/finance/pnl', attachEmployee, requireRole('admin', 'finance'), asy
 
 // ================= Analytics (sales performance, dashboard overview) =================
 
-app.get('/api/analytics/sales', attachEmployee, requireRole('admin'), async (req, res) => {
+app.get('/api/analytics/sales', attachEmployee, requireRole('admin', 'finance'), async (req, res) => {
   try {
     const leadsCol = await getLeadsCollection();
     const leads = await leadsCol.find({}).toArray();
@@ -1119,6 +1119,7 @@ app.get('/api/analytics/sales', attachEmployee, requireRole('admin'), async (req
       const key = lead.assignedSalesTelegramId || lead.assignedSalesName || 'Noma\'lum';
       if (!byRep[key]) {
         byRep[key] = {
+          telegramId: lead.assignedSalesTelegramId || null,
           name: lead.assignedSalesName || "Noma'lum",
           leadsCount: 0, consultationCount: 0, negotiationCount: 0,
           contractCount: 0, productionCount: 0, closedWonCount: 0, closedLostCount: 0,
@@ -1143,7 +1144,7 @@ app.get('/api/analytics/sales', attachEmployee, requireRole('admin'), async (req
   }
 });
 
-app.get('/api/analytics/overview', attachEmployee, requireRole('admin'), async (req, res) => {
+app.get('/api/analytics/overview', attachEmployee, requireRole('admin', 'finance'), async (req, res) => {
   try {
     const leadsCol = await getLeadsCollection();
     const materialsCol = await getMaterialsCollection();
@@ -1158,6 +1159,39 @@ app.get('/api/analytics/overview', attachEmployee, requireRole('admin'), async (
     const stockAlerts = materials.filter(m => (m.qty || 0) <= (m.minStock || 0)).length;
 
     res.json({ totalLeads, activeDeals, stockAlerts, winRate, closedWon, closedLost });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Hisoblashda xatolik' });
+  }
+});
+
+// Drill-down: a single sales rep's full activity for the analytics dashboard.
+app.get('/api/analytics/sales/:telegramId', attachEmployee, requireRole('admin', 'finance'), async (req, res) => {
+  try {
+    const telegramId = Number(req.params.telegramId);
+    const leadsCol = await getLeadsCollection();
+    const callsCol = await getCallLogsCollection();
+
+    const allLeads = await leadsCol.find(
+      { assignedSalesTelegramId: telegramId },
+      { projection: { _id: 0, id: 1, name: 1, phone: 1, status: 1, product: 1, dealAmount: 1, assignedSerialNumber: 1, createdAt: 1 } }
+    ).sort({ createdAt: -1 }).toArray();
+
+    const negotiationLeads = allLeads.filter(l => l.status === 'negotiation');
+    const soldLeads = allLeads.filter(l => l.status === 'closed_won');
+
+    const calls = await callsCol.find({ sellerTelegramId: telegramId }, { projection: { sellerScore: 1 } }).toArray();
+    const avgCallScore = calls.length
+      ? Math.round((calls.reduce((sum, c) => sum + (c.sellerScore || 0), 0) / calls.length) * 10) / 10
+      : null;
+
+    res.json({
+      leads: allLeads,
+      negotiationLeads,
+      soldLeads,
+      avgCallScore,
+      callsCount: calls.length,
+    });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Hisoblashda xatolik' });
