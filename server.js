@@ -128,7 +128,9 @@ function notifyUser(telegramId, text) { return sendTelegramMessage(telegramId, t
 
 const STATUS_LABELS = {
   lead: "Yangi lid",
+  processing: "Obrabotka qilinmoqda",
   consultation: "Konsultatsiya",
+  channel_subscription: "Kanalga a'zo qilish",
   negotiation: "Muzokarada",
   showroom: "Shourumga kelaman",
   contract: "Shartnoma",
