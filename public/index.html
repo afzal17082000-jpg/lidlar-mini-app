@@ -671,11 +671,13 @@
 
   <div class="reg-field">
     <label>Lavozimingiz</label>
-    <div class="role-grid" id="roleGrid">
-      <button type="button" class="role-btn" data-role="admin">Rahbar</button>
+    <div class="role-grid" id="roleGrid" style="grid-template-columns:1fr 1fr;">
+      <button type="button" class="role-btn" data-role="admin">Admin</button>
+      <button type="button" class="role-btn" data-role="ceo">Rahbar (CEO)</button>
       <button type="button" class="role-btn" data-role="sales">Sotuvchi</button>
-      <button type="button" class="role-btn" data-role="warehouse_production">Omborchi/Usta</button>
+      <button type="button" class="role-btn" data-role="warehouse">Omborchi/Usta</button>
       <button type="button" class="role-btn" data-role="finance">Moliyachi</button>
+      <button type="button" class="role-btn" data-role="service">Servis xodimi</button>
     </div>
   </div>
 
@@ -1703,7 +1705,7 @@ async function startApp(){
 function renderGreeting(){
   if (!currentEmployee) return;
   const el = document.getElementById('greeting');
-  const roleLabels = { admin: "Rahbar", sales: "Sotuvchi", warehouse_production: "Omborchi/Usta", finance: "Moliyachi" };
+  const roleLabels = { admin: "Admin", ceo: "Rahbar", sales: "Sotuvchi", warehouse: "Omborchi/Usta", finance: "Moliyachi", service: "Servis xodimi" };
   const roleLabel = roleLabels[currentEmployee.role] || currentEmployee.role;
   el.textContent = `${roleLabel} paneli`;
 
@@ -1761,17 +1763,19 @@ function switchTab(tab){
 
 function initTabs(){
   if (!currentEmployee) return;
-  const role = currentEmployee.role;
+  // CEO has identical full access to Admin everywhere in this app.
+  const role = currentEmployee.role === 'ceo' ? 'admin' : currentEmployee.role;
+
   const showDashboard = role === 'admin';
   const showCatalog = ['admin', 'sales'].includes(role);
-  const showWarehouse = ['admin', 'warehouse_production'].includes(role);
-  const showProduction = ['admin', 'warehouse_production'].includes(role);
+  const showWarehouse = ['admin', 'warehouse'].includes(role);
+  const showProduction = ['admin', 'warehouse'].includes(role);
   const showFinance = ['admin', 'finance'].includes(role);
-  const showDebts = ['admin', 'finance', 'sales'].includes(role);
-  const showReadyStock = ['admin', 'sales', 'warehouse_production'].includes(role);
-  const showSocial = ['admin', 'sales'].includes(role);
+  const showDebts = ['admin', 'finance'].includes(role);
+  const showReadyStock = ['admin', 'sales'].includes(role);
+  const showSocial = role === 'admin';
   const showCalls = ['admin', 'sales'].includes(role);
-  const showService = ['admin', 'sales'].includes(role);
+  const showService = ['admin', 'service'].includes(role);
 
   document.getElementById('navDashboard').classList.toggle('hidden', !showDashboard);
   document.getElementById('navCatalog').classList.toggle('hidden', !showCatalog);
@@ -1784,13 +1788,14 @@ function initTabs(){
   document.getElementById('navFinance').classList.toggle('hidden', !showFinance);
   document.getElementById('navDebts').classList.toggle('hidden', !showDebts);
 
-  // Salespeople only see their own customers' debitor debts — no kreditor tab, no add button.
-  document.getElementById('debtsTabKreditor').classList.toggle('hidden', role === 'sales');
-  document.getElementById('addDebtBar').classList.toggle('hidden', role === 'sales');
+  // Sales no longer manages debts directly under the new strict matrix, but
+  // finance sees both debitor and kreditor with full add access.
+  document.getElementById('debtsTabKreditor').classList.toggle('hidden', false);
+  document.getElementById('addDebtBar').classList.toggle('hidden', false);
 
   // Usta/Omborchi gets a simplified production view: no BOM/recipe management,
   // no prices — only the WIP tracker with completion percentage.
-  const isWarehouseOnly = role === 'warehouse_production';
+  const isWarehouseOnly = role === 'warehouse';
   document.getElementById('advancedProductionBar').classList.toggle('hidden', isWarehouseOnly);
   document.getElementById('advancedProductionLabel').classList.toggle('hidden', isWarehouseOnly);
   document.getElementById('productsList').classList.toggle('hidden', isWarehouseOnly);
@@ -2315,7 +2320,8 @@ async function loadReadyStock(){
 
 function renderReadyStock(){
   const list = document.getElementById('readyStockList');
-  const canEdit = ['admin', 'warehouse_production'].includes(currentEmployee.role);
+  const effRole = currentEmployee.role === 'ceo' ? 'admin' : currentEmployee.role;
+  const canEdit = ['admin', 'warehouse'].includes(effRole);
   if (!readyStock.length) {
     list.innerHTML = `<div class="empty"><p>Hozircha tayyor kotel yo'q.</p></div>`;
     return;
@@ -3425,7 +3431,7 @@ function renderDetail(lead){
       <button type="button" class="btn-small" style="background:var(--surface-2); color:var(--text);" data-action="assign-serial">Seriya biriktirish</button>
     </div>
     <div class="detail-actions" style="margin-top:8px;">
-      <button type="button" class="btn-small" style="background:var(--surface-2); color:var(--text);" data-action="to-social">📲 Kanallarga a'zolik</button>
+      ${['admin', 'ceo'].includes(currentEmployee.role) ? `<button type="button" class="btn-small" style="background:var(--surface-2); color:var(--text);" data-action="to-social">📲 Kanallarga a'zolik</button>` : ''}
       <button type="button" class="btn-small" style="background:var(--surface-2); color:var(--text);" data-action="reassign">Qayta biriktirish</button>
     </div>
     <div class="detail-actions" style="margin-top:8px;">
@@ -3624,8 +3630,8 @@ document.getElementById('sheetClose').addEventListener('click', () => overlay.cl
 overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('open'); });
 
 async function ensureAssignedSalesField(){
-  // Only admins get to pick a different responsible salesperson when logging a lead.
-  if (!currentEmployee || currentEmployee.role !== 'admin') return;
+  // Only admins/CEO get to pick a different responsible salesperson when logging a lead.
+  if (!currentEmployee || !['admin', 'ceo'].includes(currentEmployee.role)) return;
   const field = document.getElementById('fAssignedField');
   field.style.display = 'block';
   try {
