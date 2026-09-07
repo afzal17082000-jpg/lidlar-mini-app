@@ -88,7 +88,10 @@ function requireRole(...roles) {
     if (!req.employee) {
       return res.status(403).json({ error: "Avval ro'yxatdan o'ting" });
     }
-    if (!roles.includes(req.employee.role)) {
+    // CEO always has the same access as admin, without needing every
+    // requireRole(...) call to list both roles explicitly.
+    const effectiveRole = req.employee.role === 'ceo' ? 'admin' : req.employee.role;
+    if (!roles.includes(effectiveRole)) {
       return res.status(403).json({ error: "Bu bo'limga kirish huquqingiz yo'q" });
     }
     next();
@@ -145,11 +148,16 @@ const STATUS_LABELS = {
 };
 
 const ROLE_LABELS = {
-  admin: "Rahbar",
+  admin: "Admin",
+  ceo: "Rahbar",
   sales: "Sotuvchi",
-  warehouse_production: "Omborchi/Usta",
+  warehouse: "Omborchi/Usta",
   finance: "Moliyachi",
+  service: "Servis xodimi",
 };
+
+// 'ceo' has identical full-access privileges to 'admin' everywhere in the app.
+const ADMIN_ROLES = ['admin', 'ceo'];
 
 // ================= Product knowledge base (static catalog) =================
 // Reference catalog for sales: category -> tiers with fixed specs.
@@ -197,7 +205,7 @@ const PRODUCT_CATALOG = {
   },
 };
 
-app.get('/api/catalog', attachEmployee, requireRole('admin', 'sales', 'warehouse_production'), (req, res) => {
+app.get('/api/catalog', attachEmployee, requireRole('admin', 'sales', 'warehouse'), (req, res) => {
   res.json(PRODUCT_CATALOG);
 });
 
@@ -219,7 +227,7 @@ const REGIONS = {
   "Qoraqalpog'iston": ["Nukus shahri", "Amudaryo", "Beruniy", "Chimboy", "Ellikqal'a", "Kegeyli", "Mo'ynoq", "Nukus tumani", "Qanliko'l", "Qorao'zak", "Qo'ng'irot", "Shumanay", "Taxtako'pir", "To'rtko'l", "Xo'jayli"],
 };
 
-app.get('/api/locations', attachEmployee, requireRole('admin', 'sales'), (req, res) => {
+app.get('/api/locations', attachEmployee, requireRole('admin', 'sales', 'service'), (req, res) => {
   res.json(REGIONS);
 });
 
@@ -574,7 +582,7 @@ app.delete('/api/leads/:id', async (req, res) => {
 
 // ================= Warehouse (raw materials) =================
 
-app.get('/api/materials', attachEmployee, requireRole('admin', 'warehouse_production'), async (req, res) => {
+app.get('/api/materials', attachEmployee, requireRole('admin', 'warehouse', 'finance'), async (req, res) => {
   try {
     const col = await getMaterialsCollection();
     const materials = await col.find({}, { projection: { _id: 0 } }).sort({ name: 1 }).toArray();
@@ -585,7 +593,7 @@ app.get('/api/materials', attachEmployee, requireRole('admin', 'warehouse_produc
   }
 });
 
-app.post('/api/materials', attachEmployee, requireRole('admin', 'warehouse_production'), async (req, res) => {
+app.post('/api/materials', attachEmployee, requireRole('admin', 'warehouse', 'finance'), async (req, res) => {
   const { name, unit, qty, minStock, maxStock, purchasePrice } = req.body || {};
   if (!name || !unit) return res.status(400).json({ error: "Nomi va o'lchov birligi majburiy" });
   const material = {
@@ -607,7 +615,7 @@ app.post('/api/materials', attachEmployee, requireRole('admin', 'warehouse_produ
 
 // General edit for a material's own fields (name/unit/min/max/price) — NOT the quantity,
 // which always goes through /adjust for a proper audit trail.
-app.patch('/api/materials/:id', attachEmployee, requireRole('admin', 'warehouse_production'), async (req, res) => {
+app.patch('/api/materials/:id', attachEmployee, requireRole('admin', 'warehouse', 'finance'), async (req, res) => {
   try {
     const col = await getMaterialsCollection();
     const update = { updatedAt: Date.now() };
@@ -630,7 +638,7 @@ app.patch('/api/materials/:id', attachEmployee, requireRole('admin', 'warehouse_
   }
 });
 
-app.post('/api/materials/:id/adjust', attachEmployee, requireRole('admin', 'warehouse_production'), async (req, res) => {
+app.post('/api/materials/:id/adjust', attachEmployee, requireRole('admin', 'warehouse', 'finance'), async (req, res) => {
   const { type, qty, note, date } = req.body || {};
   const amount = Number(qty);
   if (!['in', 'out'].includes(type) || !amount || amount <= 0) {
@@ -675,7 +683,7 @@ app.post('/api/materials/:id/adjust', attachEmployee, requireRole('admin', 'ware
   }
 });
 
-app.delete('/api/materials/:id', attachEmployee, requireRole('admin', 'warehouse_production'), async (req, res) => {
+app.delete('/api/materials/:id', attachEmployee, requireRole('admin', 'warehouse'), async (req, res) => {
   try {
     const col = await getMaterialsCollection();
     await col.deleteOne({ id: req.params.id });
@@ -688,7 +696,7 @@ app.delete('/api/materials/:id', attachEmployee, requireRole('admin', 'warehouse
 
 // ================= Production: Products, BOM, Assembly =================
 
-app.get('/api/products', attachEmployee, requireRole('admin', 'warehouse_production', 'sales'), async (req, res) => {
+app.get('/api/products', attachEmployee, requireRole('admin', 'warehouse', 'sales'), async (req, res) => {
   try {
     const col = await getProductsCollection();
     const products = await col.find({}, { projection: { _id: 0 } }).sort({ name: 1 }).toArray();
@@ -699,7 +707,7 @@ app.get('/api/products', attachEmployee, requireRole('admin', 'warehouse_product
   }
 });
 
-app.post('/api/products', attachEmployee, requireRole('admin', 'warehouse_production'), async (req, res) => {
+app.post('/api/products', attachEmployee, requireRole('admin', 'warehouse'), async (req, res) => {
   const { name, powerKw, salePrice, description } = req.body || {};
   if (!name) return res.status(400).json({ error: 'Nomi majburiy' });
   const product = {
@@ -716,7 +724,7 @@ app.post('/api/products', attachEmployee, requireRole('admin', 'warehouse_produc
   }
 });
 
-app.delete('/api/products/:id', attachEmployee, requireRole('admin', 'warehouse_production'), async (req, res) => {
+app.delete('/api/products/:id', attachEmployee, requireRole('admin', 'warehouse'), async (req, res) => {
   try {
     const col = await getProductsCollection();
     await col.deleteOne({ id: req.params.id });
@@ -730,7 +738,7 @@ app.delete('/api/products/:id', attachEmployee, requireRole('admin', 'warehouse_
 });
 
 // BOM (retseptura) for a product: { productId, items: [{materialId, qty}] }
-app.get('/api/boms/:productId', attachEmployee, requireRole('admin', 'warehouse_production'), async (req, res) => {
+app.get('/api/boms/:productId', attachEmployee, requireRole('admin', 'warehouse'), async (req, res) => {
   try {
     const col = await getBomsCollection();
     const bom = await col.findOne({ productId: req.params.productId }, { projection: { _id: 0 } });
@@ -741,7 +749,7 @@ app.get('/api/boms/:productId', attachEmployee, requireRole('admin', 'warehouse_
   }
 });
 
-app.post('/api/boms/:productId', attachEmployee, requireRole('admin', 'warehouse_production'), async (req, res) => {
+app.post('/api/boms/:productId', attachEmployee, requireRole('admin', 'warehouse'), async (req, res) => {
   const { items } = req.body || {};
   if (!Array.isArray(items)) return res.status(400).json({ error: "Retseptura ro'yxati noto'g'ri" });
   const cleanItems = items
@@ -762,7 +770,7 @@ app.post('/api/boms/:productId', attachEmployee, requireRole('admin', 'warehouse
 });
 
 // Assembly: consumes materials per BOM, produces one serial
-app.post('/api/production/assemble', attachEmployee, requireRole('admin', 'warehouse_production'), async (req, res) => {
+app.post('/api/production/assemble', attachEmployee, requireRole('admin', 'warehouse'), async (req, res) => {
   const { productId } = req.body || {};
   if (!productId) return res.status(400).json({ error: 'Mahsulot tanlanmagan' });
   try {
@@ -844,11 +852,11 @@ const PRODUCTION_STAGES = [
   "Tayyor",
 ];
 
-app.get('/api/production-stages', attachEmployee, requireRole('admin', 'warehouse_production'), (req, res) => {
+app.get('/api/production-stages', attachEmployee, requireRole('admin', 'warehouse'), (req, res) => {
   res.json(PRODUCTION_STAGES);
 });
 
-app.get('/api/production-items', attachEmployee, requireRole('admin', 'warehouse_production'), async (req, res) => {
+app.get('/api/production-items', attachEmployee, requireRole('admin', 'warehouse'), async (req, res) => {
   try {
     const col = await getProductionItemsCollection();
     const items = await col.find({ status: { $ne: 'completed' } }, { projection: { _id: 0 } }).sort({ createdAt: -1 }).toArray();
@@ -859,7 +867,7 @@ app.get('/api/production-items', attachEmployee, requireRole('admin', 'warehouse
   }
 });
 
-app.post('/api/production-items', attachEmployee, requireRole('admin', 'warehouse_production'), async (req, res) => {
+app.post('/api/production-items', attachEmployee, requireRole('admin', 'warehouse'), async (req, res) => {
   const { category, size, notes } = req.body || {};
   if (!category || !PRODUCT_CATALOG[category] || !size) {
     return res.status(400).json({ error: "Turi va razmer to'g'ri kiritilishi kerak" });
@@ -886,7 +894,7 @@ app.post('/api/production-items', attachEmployee, requireRole('admin', 'warehous
   }
 });
 
-app.patch('/api/production-items/:id', attachEmployee, requireRole('admin', 'warehouse_production'), async (req, res) => {
+app.patch('/api/production-items/:id', attachEmployee, requireRole('admin', 'warehouse'), async (req, res) => {
   try {
     const col = await getProductionItemsCollection();
     const item = await col.findOne({ id: req.params.id });
@@ -943,7 +951,7 @@ app.patch('/api/production-items/:id', attachEmployee, requireRole('admin', 'war
   }
 });
 
-app.delete('/api/production-items/:id', attachEmployee, requireRole('admin', 'warehouse_production'), async (req, res) => {
+app.delete('/api/production-items/:id', attachEmployee, requireRole('admin', 'warehouse'), async (req, res) => {
   try {
     const col = await getProductionItemsCollection();
     await col.deleteOne({ id: req.params.id });
@@ -954,7 +962,7 @@ app.delete('/api/production-items/:id', attachEmployee, requireRole('admin', 'wa
   }
 });
 
-app.get('/api/serials', attachEmployee, requireRole('admin', 'warehouse_production', 'sales'), async (req, res) => {
+app.get('/api/serials', attachEmployee, requireRole('admin', 'warehouse', 'sales'), async (req, res) => {
   try {
     const col = await getSerialsCollection();
     const filter = {};
@@ -969,7 +977,7 @@ app.get('/api/serials', attachEmployee, requireRole('admin', 'warehouse_producti
 });
 
 // Lets the Usta/admin correct a finished item's model, size, serial number, or notes.
-app.patch('/api/serials/:id', attachEmployee, requireRole('admin', 'warehouse_production'), async (req, res) => {
+app.patch('/api/serials/:id', attachEmployee, requireRole('admin', 'warehouse'), async (req, res) => {
   try {
     const col = await getSerialsCollection();
     const update = { updatedAt: Date.now() };
@@ -990,7 +998,7 @@ app.patch('/api/serials/:id', attachEmployee, requireRole('admin', 'warehouse_pr
   }
 });
 
-app.delete('/api/serials/:id', attachEmployee, requireRole('admin', 'warehouse_production'), async (req, res) => {
+app.delete('/api/serials/:id', attachEmployee, requireRole('admin', 'warehouse'), async (req, res) => {
   try {
     const col = await getSerialsCollection();
     await col.deleteOne({ id: req.params.id });
@@ -1159,7 +1167,7 @@ app.get('/api/analytics/overview', attachEmployee, requireRole('admin'), async (
 // ================= Debts (Debitor / Kreditor) =================
 // Debitor = customer owes us; Kreditor = we owe a supplier.
 
-app.get('/api/debts', attachEmployee, requireRole('admin', 'finance', 'sales'), async (req, res) => {
+app.get('/api/debts', attachEmployee, requireRole('admin', 'finance'), async (req, res) => {
   try {
     const col = await getDebtsCollection();
     const filter = {};
@@ -1285,7 +1293,7 @@ checkOverdueDebts();
 
 // ================= Social subscriptions (Telegram/Instagram channel follow tracking) =================
 
-app.get('/api/social-subscriptions', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
+app.get('/api/social-subscriptions', attachEmployee, requireRole('admin'), async (req, res) => {
   try {
     const col = await getSocialSubscriptionsCollection();
     const filter = {};
@@ -1298,7 +1306,7 @@ app.get('/api/social-subscriptions', attachEmployee, requireRole('admin', 'sales
   }
 });
 
-app.post('/api/social-subscriptions', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
+app.post('/api/social-subscriptions', attachEmployee, requireRole('admin'), async (req, res) => {
   const { customerName, phone, tgUsername, tgStatus, igUsername, igStatus, notes } = req.body || {};
   if (!customerName) return res.status(400).json({ error: 'Mijoz ismi majburiy' });
   const employeeName = getEmployeeName(req);
@@ -1326,7 +1334,7 @@ app.post('/api/social-subscriptions', attachEmployee, requireRole('admin', 'sale
   }
 });
 
-app.patch('/api/social-subscriptions/:id', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
+app.patch('/api/social-subscriptions/:id', attachEmployee, requireRole('admin'), async (req, res) => {
   try {
     const col = await getSocialSubscriptionsCollection();
     const update = { updatedAt: Date.now() };
@@ -1351,7 +1359,7 @@ app.patch('/api/social-subscriptions/:id', attachEmployee, requireRole('admin', 
   }
 });
 
-app.delete('/api/social-subscriptions/:id', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
+app.delete('/api/social-subscriptions/:id', attachEmployee, requireRole('admin'), async (req, res) => {
   try {
     const col = await getSocialSubscriptionsCollection();
     await col.deleteOne({ id: req.params.id });
@@ -1534,7 +1542,7 @@ app.delete('/api/calls/:id', attachEmployee, requireRole('admin', 'sales'), asyn
 
 // ================= After-Sales Service =================
 
-app.get('/api/service', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
+app.get('/api/service', attachEmployee, requireRole('admin', 'service'), async (req, res) => {
   try {
     const col = await getServiceCustomersCollection();
     const items = await col.find({}, { projection: { _id: 0 } }).sort({ createdAt: -1 }).toArray();
@@ -1545,7 +1553,7 @@ app.get('/api/service', attachEmployee, requireRole('admin', 'sales'), async (re
   }
 });
 
-app.post('/api/service', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
+app.post('/api/service', attachEmployee, requireRole('admin', 'service'), async (req, res) => {
   const { customerName, phone, region, district, product, serialNumber, condition, followUpDate, staffNotes, customerFeedback } = req.body || {};
   if (!customerName) return res.status(400).json({ error: 'Mijoz ismi majburiy' });
   const employeeName = getEmployeeName(req);
@@ -1577,7 +1585,7 @@ app.post('/api/service', attachEmployee, requireRole('admin', 'sales'), async (r
   }
 });
 
-app.patch('/api/service/:id', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
+app.patch('/api/service/:id', attachEmployee, requireRole('admin', 'service'), async (req, res) => {
   try {
     const col = await getServiceCustomersCollection();
     const update = { updatedAt: Date.now() };
@@ -1605,7 +1613,7 @@ app.patch('/api/service/:id', attachEmployee, requireRole('admin', 'sales'), asy
   }
 });
 
-app.delete('/api/service/:id', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
+app.delete('/api/service/:id', attachEmployee, requireRole('admin', 'service'), async (req, res) => {
   try {
     const col = await getServiceCustomersCollection();
     await col.deleteOne({ id: req.params.id });
@@ -1651,7 +1659,7 @@ app.get('/api/reports/sales/excel', attachEmployee, requireRole('admin', 'financ
   }
 });
 
-app.get('/api/reports/warehouse/excel', attachEmployee, requireRole('admin', 'warehouse_production'), async (req, res) => {
+app.get('/api/reports/warehouse/excel', attachEmployee, requireRole('admin', 'warehouse'), async (req, res) => {
   try {
     const materialsCol = await getMaterialsCollection();
     const serialsCol = await getSerialsCollection();
