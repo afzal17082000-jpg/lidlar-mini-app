@@ -1358,6 +1358,11 @@ const API = {
     if (!res.ok) throw new Error(data.error || 'update failed');
     return data;
   },
+  async removeSerial(id){
+    const res = await fetch('/api/serials/' + id, { method:'DELETE', headers: authHeaders() });
+    if (!res.ok) throw new Error('delete failed');
+    return res.json();
+  },
   async updateMaterial(id, payload){
     const res = await fetch('/api/materials/' + id, { method:'PATCH', headers: authHeaders(true), body: JSON.stringify(payload) });
     const data = await res.json();
@@ -1782,7 +1787,7 @@ function renderSerials(){
   }
   const statusLabels = { stock: "Omborda", reserved: "Bron", sold: "Sotilgan" };
   list.innerHTML = serials.slice(0, 30).map(s => `
-    <div class="mat-card">
+    <div class="mat-card" data-id="${s.id}">
       <div class="mat-top">
         <div>
           <div class="mat-name">${escapeHtml(s.serialNumber)}</div>
@@ -1790,8 +1795,34 @@ function renderSerials(){
         </div>
         <div class="mat-qty">${statusLabels[s.status] || s.status}</div>
       </div>
+      <div class="mat-actions">
+        <button type="button" class="mat-btn" data-action="edit">Tahrirlash</button>
+        <button type="button" class="mat-btn out" data-action="delete">O'chirish</button>
+      </div>
     </div>
   `).join('');
+
+  list.querySelectorAll('.mat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.closest('.mat-card').dataset.id;
+      if (btn.dataset.action === 'edit') {
+        openEditSerial(id);
+      } else {
+        const doDelete = async () => {
+          try {
+            await API.removeSerial(id);
+            serials = serials.filter(s => s.id !== id);
+            readyStock = readyStock.filter(s => s.id !== id);
+            renderSerials();
+            if (typeof renderReadyStock === 'function') renderReadyStock();
+            showToast("O'chirildi");
+          } catch (e) { showToast("O'chirib bo'lmadi", true); }
+        };
+        if (tg && tg.showConfirm) tg.showConfirm("O'chirmoqchimisiz?", (ok) => { if (ok) doDelete(); });
+        else if (confirm("O'chirmoqchimisiz?")) doDelete();
+      }
+    });
+  });
 }
 
 document.getElementById('fabAddProduct').addEventListener('click', () => {
@@ -2161,16 +2192,32 @@ function renderReadyStock(){
       ${canEdit ? `
         <div class="mat-actions">
           <button type="button" class="mat-btn" data-action="edit">Tahrirlash</button>
+          <button type="button" class="mat-btn out" data-action="delete">O'chirish</button>
         </div>
       ` : ''}
     </div>
   `).join('');
 
   if (canEdit) {
-    list.querySelectorAll('[data-action="edit"]').forEach(btn => {
+    list.querySelectorAll('.mat-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const id = btn.closest('.mat-card').dataset.id;
-        openEditSerial(id);
+        if (btn.dataset.action === 'edit') {
+          openEditSerial(id);
+        } else {
+          const doDelete = async () => {
+            try {
+              await API.removeSerial(id);
+              readyStock = readyStock.filter(s => s.id !== id);
+              serials = serials.filter(s => s.id !== id);
+              renderReadyStock();
+              if (typeof renderSerials === 'function') renderSerials();
+              showToast("O'chirildi");
+            } catch (e) { showToast("O'chirib bo'lmadi", true); }
+          };
+          if (tg && tg.showConfirm) tg.showConfirm("O'chirmoqchimisiz?", (ok) => { if (ok) doDelete(); });
+          else if (confirm("O'chirmoqchimisiz?")) doDelete();
+        }
       });
     });
   }
