@@ -957,6 +957,17 @@ app.patch('/api/serials/:id', attachEmployee, requireRole('admin', 'warehouse_pr
   }
 });
 
+app.delete('/api/serials/:id', attachEmployee, requireRole('admin', 'warehouse_production'), async (req, res) => {
+  try {
+    const col = await getSerialsCollection();
+    await col.deleteOne({ id: req.params.id });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "O'chirishda xatolik" });
+  }
+});
+
 // ================= Finance =================
 
 app.get('/api/finance/entries', attachEmployee, requireRole('admin', 'finance'), async (req, res) => {
