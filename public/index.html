@@ -694,6 +694,7 @@
   <div class="nav-item hidden" data-tab="catalog" id="navCatalog"><span class="icon">📖</span> Katalog</div>
   <div class="nav-item hidden" data-tab="readystock" id="navReadystock"><span class="icon">✅</span> Tayyor mahsulotlar</div>
   <div class="nav-item hidden" data-tab="social" id="navSocial"><span class="icon">📲</span> Kanallarga a'zolik</div>
+  <div class="nav-item hidden" data-tab="calls" id="navCalls"><span class="icon">🎙️</span> Zvonoklar (AI)</div>
   <div class="nav-item hidden" data-tab="warehouse" id="navWarehouse"><span class="icon">📦</span> Ombor</div>
   <div class="nav-item hidden" data-tab="production" id="navProduction"><span class="icon">🏭</span> Ishlab chiqarish</div>
   <div class="nav-item hidden" data-tab="finance" id="navFinance"><span class="icon">💰</span> Moliya</div>
@@ -776,6 +777,32 @@
     <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 16px;" id="fabAddSocial">+ Qo'shish</button>
   </div>
   <div class="list" id="socialList" style="padding:0 16px;"></div>
+</div>
+
+<div class="tab-panel hidden" id="callsPanel">
+  <div class="searchbar" style="justify-content:flex-end;">
+    <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 16px;" id="fabUploadCall">🎙️ Audio yuklash</button>
+  </div>
+  <div class="list" id="callsList" style="padding:0 16px;"></div>
+</div>
+
+<div class="sheet-overlay" id="callUploadOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Qo'ng'iroq audiosini yuklash</h2>
+      <button class="sheet-close" id="callUploadClose">✕</button>
+    </div>
+    <div class="field">
+      <label>Audio fayl (mp3, m4a, wav)</label>
+      <input type="file" id="callAudioFile" accept="audio/*">
+    </div>
+    <div class="field">
+      <label>Qaysi lidga bog'lansin? (ixtiyoriy)</label>
+      <select id="callLeadSelect"><option value="">Bog'lamasdan</option></select>
+    </div>
+    <button type="button" class="submit-btn" id="callUploadBtn">Tahlil qilish</button>
+    <div id="callUploadStatus" style="text-align:center; font-size:13px; color:var(--text-muted); margin-top:10px;"></div>
+  </div>
 </div>
 
 <div class="sheet-overlay" id="socialSheetOverlay">
@@ -1397,6 +1424,28 @@ const API = {
     if (!res.ok) throw new Error('delete failed');
     return res.json();
   },
+  async calls(){
+    const res = await fetch('/api/calls', { headers: authHeaders() });
+    if (!res.ok) throw new Error('calls failed');
+    return res.json();
+  },
+  async uploadCall(formData){
+    const res = await fetch('/api/calls/upload', { method:'POST', headers: authHeaders(false), body: formData });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'upload failed');
+    return data;
+  },
+  async updateCall(id, payload){
+    const res = await fetch('/api/calls/' + id, { method:'PATCH', headers: authHeaders(true), body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'update failed');
+    return data;
+  },
+  async removeCall(id){
+    const res = await fetch('/api/calls/' + id, { method:'DELETE', headers: authHeaders() });
+    if (!res.ok) throw new Error('delete failed');
+    return res.json();
+  },
   async assignSerial(leadId, serialId){
     const res = await fetch('/api/leads/' + leadId + '/assign-serial', { method:'POST', headers: authHeaders(true), body: JSON.stringify({ serialId }) });
     const data = await res.json();
@@ -1580,7 +1629,7 @@ function renderGreeting(){
 }
 
 // ================= Sidebar navigation =================
-const PAGE_TITLES = { dashboard: 'Bosh sahifa', leads: 'Sotuv', catalog: 'Katalog', readystock: 'Tayyor mahsulotlar', social: "Kanallarga a'zolik", warehouse: 'Ombor', production: 'Ishlab chiqarish', finance: 'Moliya', debts: 'Qarzdorlik' };
+const PAGE_TITLES = { dashboard: 'Bosh sahifa', leads: 'Sotuv', catalog: 'Katalog', readystock: 'Tayyor mahsulotlar', social: "Kanallarga a'zolik", calls: 'Zvonoklar (AI)', warehouse: 'Ombor', production: 'Ishlab chiqarish', finance: 'Moliya', debts: 'Qarzdorlik' };
 
 function openSidebar(){
   document.getElementById('sidebar').classList.add('open');
@@ -1603,6 +1652,7 @@ function switchTab(tab){
   document.getElementById('catalogPanel').classList.toggle('hidden', tab !== 'catalog');
   document.getElementById('readyStockPanel').classList.toggle('hidden', tab !== 'readystock');
   document.getElementById('socialPanel').classList.toggle('hidden', tab !== 'social');
+  document.getElementById('callsPanel').classList.toggle('hidden', tab !== 'calls');
   document.getElementById('warehousePanel').classList.toggle('hidden', tab !== 'warehouse');
   document.getElementById('productionPanel').classList.toggle('hidden', tab !== 'production');
   document.getElementById('financePanel').classList.toggle('hidden', tab !== 'finance');
@@ -1614,6 +1664,7 @@ function switchTab(tab){
   if (tab === 'catalog') loadCatalog();
   if (tab === 'readystock') loadReadyStock();
   if (tab === 'social') loadSocial();
+  if (tab === 'calls') loadCalls();
   if (tab === 'warehouse') loadMaterials();
   if (tab === 'production') { loadProdItems(); loadProducts(); loadSerials(); }
   if (tab === 'finance') { loadFinance(); loadPnl(); }
@@ -1633,11 +1684,13 @@ function initTabs(){
   const showDebts = ['admin', 'finance', 'sales'].includes(role);
   const showReadyStock = ['admin', 'sales', 'warehouse_production'].includes(role);
   const showSocial = ['admin', 'sales'].includes(role);
+  const showCalls = ['admin', 'sales'].includes(role);
 
   document.getElementById('navDashboard').classList.toggle('hidden', !showDashboard);
   document.getElementById('navCatalog').classList.toggle('hidden', !showCatalog);
   document.getElementById('navReadystock').classList.toggle('hidden', !showReadyStock);
   document.getElementById('navSocial').classList.toggle('hidden', !showSocial);
+  document.getElementById('navCalls').classList.toggle('hidden', !showCalls);
   document.getElementById('navWarehouse').classList.toggle('hidden', !showWarehouse);
   document.getElementById('navProduction').classList.toggle('hidden', !showProduction);
   document.getElementById('navFinance').classList.toggle('hidden', !showFinance);
@@ -2379,6 +2432,110 @@ document.getElementById('soSaveBtn').addEventListener('click', async () => {
     showToast('Saqlandi');
   } catch (e) {
     showToast(e.message || "Saqlab bo'lmadi", true);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ================= AI Call Analyzer =================
+let callLogs = [];
+
+async function loadCalls(){
+  try {
+    callLogs = await API.calls();
+    renderCalls();
+  } catch (e) {
+    showToast("Yuklab bo'lmadi", true);
+  }
+}
+
+const SENTIMENT_COLORS = { Positive: 'var(--s-buyurtma)', Neutral: 'var(--s-muzokara)', Negative: 'var(--danger)' };
+const SENTIMENT_LABELS = { Positive: "Ijobiy", Neutral: "Neytral", Negative: "Salbiy" };
+
+function renderCalls(){
+  const list = document.getElementById('callsList');
+  if (!callLogs.length) {
+    list.innerHTML = `<div class="empty"><h3>Hali tahlil qilingan qo'ng'iroq yo'q</h3><p>Yuqoridagi tugma orqali audio yuklang.</p></div>`;
+    return;
+  }
+  list.innerHTML = callLogs.map(c => `
+    <div class="mat-card" data-id="${c.id}">
+      <div class="mat-top">
+        <div>
+          <div class="mat-name">${escapeHtml(c.sellerName)}</div>
+          <div class="mat-sub">${new Date(c.createdAt).toLocaleString('uz-UZ', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div>
+        </div>
+        <div class="mat-qty" style="color:${SENTIMENT_COLORS[c.clientSentiment] || 'var(--text)'}">${c.sellerScore}/10</div>
+      </div>
+      <div class="card-extra" style="margin-top:6px;">
+        <span>😊 Mijoz kayfiyati: ${SENTIMENT_LABELS[c.clientSentiment] || c.clientSentiment}</span>
+        ${c.recommendedStage ? `<span>➡️ Tavsiya: ${escapeHtml(statusById[c.recommendedStage]?.label || c.recommendedStage)}</span>` : ''}
+      </div>
+      ${c.summary ? `<div class="card-comment" style="margin-top:8px;"><b>Mazmuni:</b> ${escapeHtml(c.summary)}</div>` : ''}
+      ${c.keyObjections ? `<div class="card-comment" style="margin-top:4px;"><b>E'tirozlar:</b> ${escapeHtml(c.keyObjections)}</div>` : ''}
+      <div class="mat-actions">
+        <button type="button" class="mat-btn" data-action="transcript">Matnini ko'rish</button>
+        <button type="button" class="mat-btn out" data-action="delete">O'chirish</button>
+      </div>
+    </div>
+  `).join('');
+
+  list.querySelectorAll('.mat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.closest('.mat-card').dataset.id;
+      const call = callLogs.find(c => c.id === id);
+      if (btn.dataset.action === 'transcript') {
+        alert(call.transcription || "Matn mavjud emas");
+      } else {
+        const doDelete = async () => {
+          try {
+            await API.removeCall(id);
+            callLogs = callLogs.filter(c => c.id !== id);
+            renderCalls();
+            showToast("O'chirildi");
+          } catch (e) { showToast("O'chirib bo'lmadi", true); }
+        };
+        if (tg && tg.showConfirm) tg.showConfirm("O'chirmoqchimisiz?", (ok) => { if (ok) doDelete(); });
+        else if (confirm("O'chirmoqchimisiz?")) doDelete();
+      }
+    });
+  });
+}
+
+document.getElementById('fabUploadCall').addEventListener('click', async () => {
+  document.getElementById('callAudioFile').value = '';
+  document.getElementById('callUploadStatus').textContent = '';
+  const sel = document.getElementById('callLeadSelect');
+  sel.innerHTML = '<option value="">Bog\'lamasdan</option>' +
+    leads.map(l => `<option value="${l.id}">${escapeHtml(l.name)} (${escapeHtml(l.phone)})</option>`).join('');
+  document.getElementById('callUploadOverlay').classList.add('open');
+});
+document.getElementById('callUploadClose').addEventListener('click', () => {
+  document.getElementById('callUploadOverlay').classList.remove('open');
+});
+document.getElementById('callUploadBtn').addEventListener('click', async () => {
+  const fileInput = document.getElementById('callAudioFile');
+  const file = fileInput.files[0];
+  if (!file) { showToast("Audio faylni tanlang", true); return; }
+  const leadId = document.getElementById('callLeadSelect').value;
+
+  const formData = new FormData();
+  formData.append('audio', file);
+  if (leadId) formData.append('leadId', leadId);
+
+  const btn = document.getElementById('callUploadBtn');
+  const statusEl = document.getElementById('callUploadStatus');
+  btn.disabled = true;
+  statusEl.textContent = "Tahlil qilinmoqda... bu bir necha o'n soniya davom etishi mumkin";
+  try {
+    const result = await API.uploadCall(formData);
+    callLogs.unshift(result);
+    renderCalls();
+    document.getElementById('callUploadOverlay').classList.remove('open');
+    showToast("Tahlil tayyor! Baho: " + result.sellerScore + "/10");
+  } catch (e) {
+    statusEl.textContent = '';
+    showToast(e.message || "Tahlil qilib bo'lmadi", true);
   } finally {
     btn.disabled = false;
   }
