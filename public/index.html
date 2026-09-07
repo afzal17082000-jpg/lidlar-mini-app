@@ -1215,14 +1215,16 @@ if (tg) { tg.ready(); tg.expand(); }
 
 // ---------- Statuses (sales funnel) ----------
 const STATUSES = [
-  { id: 'lead',          label: "Yangi lid",           color: 'var(--s-yangi)' },
-  { id: 'consultation',  label: "Konsultatsiya",       color: 'var(--s-boglanildi)' },
-  { id: 'negotiation',   label: "Muzokarada",          color: 'var(--s-muzokara)' },
-  { id: 'showroom',      label: "Shourumga kelaman",   color: '#E07BC7' },
-  { id: 'contract',      label: "Shartnoma",           color: '#8B7FD9' },
-  { id: 'production',    label: "Ishlab chiqarish",    color: 'var(--s-followup)' },
-  { id: 'closed_won',    label: "Sotildi",             color: 'var(--s-buyurtma)' },
-  { id: 'closed_lost',   label: "Otkaz",               color: 'var(--danger)' },
+  { id: 'lead',                  label: "Yangi lid",              color: 'var(--s-yangi)' },
+  { id: 'processing',            label: "Obrabotka qilinmoqda",   color: '#4FA8D8' },
+  { id: 'consultation',          label: "Konsultatsiya",          color: 'var(--s-boglanildi)' },
+  { id: 'channel_subscription',  label: "Kanalga a'zo qilish",    color: '#2FB8A8' },
+  { id: 'negotiation',           label: "Muzokarada",             color: 'var(--s-muzokara)' },
+  { id: 'showroom',              label: "Shourumga kelaman",      color: '#E07BC7' },
+  { id: 'contract',              label: "Shartnoma",              color: '#8B7FD9' },
+  { id: 'production',            label: "Ishlab chiqarish",       color: 'var(--s-followup)' },
+  { id: 'closed_won',            label: "Sotildi",                color: 'var(--s-buyurtma)' },
+  { id: 'closed_lost',           label: "Otkaz",                  color: 'var(--danger)' },
 ];
 const statusById = Object.fromEntries(STATUSES.map(s => [s.id, s]));
 
@@ -2985,7 +2987,10 @@ function renderDetail(lead){
       <button type="button" class="btn-small" style="background:var(--surface-2); color:var(--text);" data-action="assign-serial">Seriya biriktirish</button>
     </div>
     <div class="detail-actions" style="margin-top:8px;">
+      <button type="button" class="btn-small" style="background:var(--surface-2); color:var(--text);" data-action="to-social">📲 Kanallarga a'zolik</button>
       <button type="button" class="btn-small" style="background:var(--surface-2); color:var(--text);" data-action="reassign">Qayta biriktirish</button>
+    </div>
+    <div class="detail-actions" style="margin-top:8px;">
       <button type="button" class="btn-small btn-delete" data-action="delete">O'chirish</button>
     </div>
   </div>`;
@@ -3051,6 +3056,21 @@ function attachDetailHandlers(){
       const card = btn.closest('.card');
       const id = card.dataset.id;
       openReassignSheet(id);
+    });
+  });
+
+  document.querySelectorAll('[data-action="to-social"]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const card = btn.closest('.card');
+      const id = card.dataset.id;
+      const lead = leads.find(l => l.id === id);
+      if (!lead) return;
+      switchTab('social');
+      openSocialSheet(null);
+      document.getElementById('soName').value = lead.name;
+      document.getElementById('soPhone').value = lead.phone;
+      showToast("Mijoz ma'lumotlari o'tkazildi — Telegram/Instagram maydonlarini to'ldiring");
     });
   });
 
