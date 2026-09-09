@@ -143,12 +143,10 @@ function notifyUser(telegramId, text) { return sendTelegramMessage(telegramId, t
 
 const STATUS_LABELS = {
   lead: "Yangi lid",
-  processing: "Obrabotka qilinmoqda",
   consultation: "Konsultatsiya",
   channel_subscription: "Kanalga a'zo qilish",
   negotiation: "Muzokarada",
   showroom: "Shourumga kelaman",
-  contract: "Shartnoma",
   production: "Ishlab chiqarish",
   closed_won: "Sotildi",
   closed_lost: "Otkaz",
@@ -537,8 +535,43 @@ app.patch('/api/leads/:id', attachEmployee, requireRole('admin', 'sales', 'finan
         await col.updateOne({ id: updated.id }, { $set: { assignedSerialId: null, assignedSerialNumber: '' } });
       }
 
-      if (update.status === 'production' && updated.responsibleTelegramId) {
-        notifyUser(updated.responsibleTelegramId, `🏭 <b>Eslatma</b>\n${escapeHtmlServer(updated.name)} ishlab chiqarish/bron bosqichiga o'tdi.`);
+      if (update.status === 'production') {
+        if (updated.responsibleTelegramId) {
+          notifyUser(updated.responsibleTelegramId, `🏭 <b>Eslatma</b>\n${escapeHtmlServer(updated.name)} ishlab chiqarish/bron bosqichiga o'tdi.`);
+        }
+
+        // Auto-create a production order so the Usta immediately sees what
+        // was ordered, for whom, and (once set) by when it's due.
+        try {
+          const prodCol = await getProductionItemsCollection();
+          const existing = await prodCol.findOne({ leadId: updated.id });
+          if (!existing) {
+            const category = PRODUCT_CATALOG[updated.productCategory] ? updated.productCategory : 'bunkerlik';
+            const size = updated.productSize || 150;
+            await prodCol.insertOne({
+              id: uid('pi'),
+              leadId: updated.id,
+              category,
+              size: Number(size),
+              stageIndex: 0,
+              notes: `Mijoz: ${updated.name} (${updated.phone})` + (updated.product ? ` — ${updated.product}` : ''),
+              customerName: updated.name,
+              customerPhone: updated.phone,
+              dueDate: '',
+              status: 'in_progress',
+              assignedWorker: employeeName,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+            });
+            notifyGroup(
+              `🏭 <b>Yangi buyurtma ishlab chiqarishga tushdi</b>\n👤 ${escapeHtmlServer(updated.name)} (${escapeHtmlServer(updated.phone)})\n` +
+              (updated.product ? `🫖 ${escapeHtmlServer(updated.product)}\n` : '') +
+              `Ombor/Ishlab chiqarish bo'limida ko'ring.`
+            );
+          }
+        } catch (e) {
+          console.error('Ishlab chiqarish buyurtmasini yaratishda xatolik:', e.message);
+        }
       }
     }
   } catch (e) {
@@ -875,17 +908,21 @@ app.get('/api/production-items', attachEmployee, requireRole('admin', 'warehouse
 });
 
 app.post('/api/production-items', attachEmployee, requireRole('admin', 'warehouse'), async (req, res) => {
-  const { category, size, notes } = req.body || {};
+  const { category, size, notes, customerName, customerPhone, dueDate } = req.body || {};
   if (!category || !PRODUCT_CATALOG[category] || !size) {
     return res.status(400).json({ error: "Turi va razmer to'g'ri kiritilishi kerak" });
   }
   const employeeName = getEmployeeName(req);
   const item = {
     id: uid('pi'),
+    leadId: null,
     category,
     size: Number(size),
     stageIndex: 0,
     notes: notes || '',
+    customerName: customerName || '',
+    customerPhone: customerPhone || '',
+    dueDate: dueDate || '',
     status: 'in_progress',
     assignedWorker: employeeName,
     createdAt: Date.now(),
@@ -914,6 +951,9 @@ app.patch('/api/production-items/:id', attachEmployee, requireRole('admin', 'war
     if (typeof req.body.notes === 'string') update.notes = req.body.notes;
     if (req.body.category && PRODUCT_CATALOG[req.body.category]) update.category = req.body.category;
     if (req.body.size) update.size = Number(req.body.size);
+    if (typeof req.body.customerName === 'string') update.customerName = req.body.customerName;
+    if (typeof req.body.customerPhone === 'string') update.customerPhone = req.body.customerPhone;
+    if (typeof req.body.dueDate === 'string') update.dueDate = req.body.dueDate;
 
     const employeeName = getEmployeeName(req);
     const reachedFinalStage = update.stageIndex === PRODUCTION_STAGES.length - 1;
