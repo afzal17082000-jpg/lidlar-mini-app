@@ -782,6 +782,13 @@
   <input id="searchInput" type="text" placeholder="Ism yoki telefon bo'yicha qidirish">
 </div>
 
+<div class="searchbar" style="gap:8px;">
+  <input type="date" id="leadsDateFrom" style="background:transparent; border:none; color:var(--text); font-family:'Inter',sans-serif; font-size:13px; flex:1;">
+  <span style="color:var(--text-muted); font-size:12px;">—</span>
+  <input type="date" id="leadsDateTo" style="background:transparent; border:none; color:var(--text); font-family:'Inter',sans-serif; font-size:13px; flex:1;">
+  <button type="button" class="mat-btn" id="leadsDateClear" style="flex:0 0 auto; padding:6px 10px;">✕</button>
+</div>
+
 <div class="chips" id="chips"></div>
 
 <div class="list" id="list"></div>
@@ -807,6 +814,12 @@
   <div class="searchbar" style="justify-content:flex-end;">
     <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 16px;" id="fabAddSocial">+ Qo'shish</button>
   </div>
+  <div class="searchbar" style="gap:8px;">
+    <input type="date" id="socialDateFrom" style="background:transparent; border:none; color:var(--text); font-family:'Inter',sans-serif; font-size:13px; flex:1;">
+    <span style="color:var(--text-muted); font-size:12px;">—</span>
+    <input type="date" id="socialDateTo" style="background:transparent; border:none; color:var(--text); font-family:'Inter',sans-serif; font-size:13px; flex:1;">
+    <button type="button" class="mat-btn" id="socialDateClear" style="flex:0 0 auto; padding:6px 10px;">✕</button>
+  </div>
   <div class="list" id="socialList" style="padding:0 16px;"></div>
 </div>
 
@@ -814,12 +827,24 @@
   <div class="searchbar" style="justify-content:flex-end;">
     <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 16px;" id="fabUploadCall">🎙️ Audio yuklash</button>
   </div>
+  <div class="searchbar" style="gap:8px;">
+    <input type="date" id="callsDateFrom" style="background:transparent; border:none; color:var(--text); font-family:'Inter',sans-serif; font-size:13px; flex:1;">
+    <span style="color:var(--text-muted); font-size:12px;">—</span>
+    <input type="date" id="callsDateTo" style="background:transparent; border:none; color:var(--text); font-family:'Inter',sans-serif; font-size:13px; flex:1;">
+    <button type="button" class="mat-btn" id="callsDateClear" style="flex:0 0 auto; padding:6px 10px;">✕</button>
+  </div>
   <div class="list" id="callsList" style="padding:0 16px;"></div>
 </div>
 
 <div class="tab-panel hidden" id="servicePanel">
   <div class="searchbar" style="justify-content:flex-end;">
     <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 16px;" id="fabAddService">+ Mijoz qo'shish</button>
+  </div>
+  <div class="searchbar" style="gap:8px;">
+    <input type="date" id="serviceDateFrom" style="background:transparent; border:none; color:var(--text); font-family:'Inter',sans-serif; font-size:13px; flex:1;">
+    <span style="color:var(--text-muted); font-size:12px;">—</span>
+    <input type="date" id="serviceDateTo" style="background:transparent; border:none; color:var(--text); font-family:'Inter',sans-serif; font-size:13px; flex:1;">
+    <button type="button" class="mat-btn" id="serviceDateClear" style="flex:0 0 auto; padding:6px 10px;">✕</button>
   </div>
   <div class="list" id="serviceList" style="padding:0 16px;"></div>
 </div>
@@ -974,6 +999,12 @@
   <div class="searchbar" style="justify-content:space-between; gap:8px;">
     <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 14px; font-size:13px;" id="fabAddProdItem">+ Yangi kotel (jarayonda)</button>
   </div>
+  <div class="searchbar" style="gap:8px;">
+    <input type="date" id="prodDateFrom" style="background:transparent; border:none; color:var(--text); font-family:'Inter',sans-serif; font-size:13px; flex:1;">
+    <span style="color:var(--text-muted); font-size:12px;">—</span>
+    <input type="date" id="prodDateTo" style="background:transparent; border:none; color:var(--text); font-family:'Inter',sans-serif; font-size:13px; flex:1;">
+    <button type="button" class="mat-btn" id="prodDateClear" style="flex:0 0 auto; padding:6px 10px;">✕</button>
+  </div>
   <div class="detail-label" style="padding:0 16px; margin-top:10px;">Tayyorlanayotgan kotellar</div>
   <div class="list" id="prodItemsList" style="padding:0 16px;"></div>
 
@@ -1027,6 +1058,12 @@
     <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 14px; font-size:13px;" id="fabAddFinance">+ Yozuv qo'shish</button>
     <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 14px; font-size:13px; background:var(--surface-2); color:var(--text);" id="downloadFinanceExcel">📊 Excel</button>
   </div>
+  <div class="searchbar" style="gap:8px;">
+    <input type="date" id="financeDateFrom" style="background:transparent; border:none; color:var(--text); font-family:'Inter',sans-serif; font-size:13px; flex:1;">
+    <span style="color:var(--text-muted); font-size:12px;">—</span>
+    <input type="date" id="financeDateTo" style="background:transparent; border:none; color:var(--text); font-family:'Inter',sans-serif; font-size:13px; flex:1;">
+    <button type="button" class="mat-btn" id="financeDateClear" style="flex:0 0 auto; padding:6px 10px;">✕</button>
+  </div>
   <div class="mat-card" id="pnlCard" style="margin:0 16px 14px;"></div>
   <div class="detail-label" style="padding:0 16px;">Yozuvlar tarixi</div>
   <div class="list" id="financeList" style="padding:0 16px;"></div>
@@ -1039,6 +1076,12 @@
   </div>
   <div class="searchbar" style="justify-content:flex-end;" id="addDebtBar">
     <button type="button" class="submit-btn" style="margin:0; width:auto; padding:10px 16px;" id="fabAddDebt">+ Qo'shish</button>
+  </div>
+  <div class="searchbar" style="gap:8px;">
+    <input type="date" id="debtsDateFrom" style="background:transparent; border:none; color:var(--text); font-family:'Inter',sans-serif; font-size:13px; flex:1;">
+    <span style="color:var(--text-muted); font-size:12px;">—</span>
+    <input type="date" id="debtsDateTo" style="background:transparent; border:none; color:var(--text); font-family:'Inter',sans-serif; font-size:13px; flex:1;">
+    <button type="button" class="mat-btn" id="debtsDateClear" style="flex:0 0 auto; padding:6px 10px;">✕</button>
   </div>
   <div class="list" id="debtsList" style="padding:0 16px;"></div>
 </div>
@@ -1335,12 +1378,10 @@ if (tg) { tg.ready(); tg.expand(); }
 // ---------- Statuses (sales funnel) ----------
 const STATUSES = [
   { id: 'lead',                  label: "Yangi lid",              color: 'var(--s-yangi)' },
-  { id: 'processing',            label: "Obrabotka qilinmoqda",   color: '#4FA8D8' },
   { id: 'consultation',          label: "Konsultatsiya",          color: 'var(--s-boglanildi)' },
   { id: 'channel_subscription',  label: "Kanalga a'zo qilish",    color: '#2FB8A8' },
   { id: 'negotiation',           label: "Muzokarada",             color: 'var(--s-muzokara)' },
   { id: 'showroom',              label: "Shourumga kelaman",      color: '#E07BC7' },
-  { id: 'contract',              label: "Shartnoma",              color: '#8B7FD9' },
   { id: 'production',            label: "Ishlab chiqarish",       color: 'var(--s-followup)' },
   { id: 'closed_won',            label: "Sotildi",                color: 'var(--s-buyurtma)' },
   { id: 'closed_lost',           label: "Otkaz",                  color: 'var(--danger)' },
@@ -2208,14 +2249,16 @@ async function ensureStagesLoaded(){
   }
 }
 
+let prodDateState = wireDateFilter('prod', () => renderProdItems());
 function renderProdItems(){
   const list = document.getElementById('prodItemsList');
-  if (!prodItems.length) {
+  const filtered = applyDateRange(prodItems, item => item.createdAt, prodDateState.from, prodDateState.to);
+  if (!filtered.length) {
     list.innerHTML = `<div class="empty"><p>Hozircha jarayondagi kotel yo'q.</p></div>`;
     return;
   }
   const total = productionStages.length || 9;
-  list.innerHTML = prodItems.map(item => {
+  list.innerHTML = filtered.map(item => {
     const idx = item.stageIndex || 0;
     const stageName = productionStages[idx] || `Bosqich ${idx + 1}`;
     const pct = Math.round(((idx + 1) / total) * 100);
@@ -2229,6 +2272,11 @@ function renderProdItems(){
         </div>
         <div class="mat-qty">${escapeHtml(stageName)}</div>
       </div>
+      ${(item.customerName || item.dueDate) ? `
+      <div class="card-extra" style="margin-top:6px;">
+        ${item.customerName ? `<span>👤 ${escapeHtml(item.customerName)}${item.customerPhone ? ' (' + escapeHtml(item.customerPhone) + ')' : ''}</span>` : ''}
+        ${item.dueDate ? `<span>📅 Tayyor bo'lishi kerak: ${escapeHtml(item.dueDate)}</span>` : ''}
+      </div>` : ''}
       <div class="prog-track"><div class="prog-fill" style="width:${pct}%;"></div></div>
       ${item.notes ? `<div class="card-comment" style="margin-top:8px;">${escapeHtml(item.notes)}</div>` : ''}
       <div class="prog-actions">
@@ -2538,13 +2586,15 @@ async function loadSocial(){
 
 const SOCIAL_STATUS_LABELS = { member: "A'zo", not_member: "A'zo emas" };
 
+let socialDateState = wireDateFilter('social', () => renderSocial());
 function renderSocial(){
   const list = document.getElementById('socialList');
-  if (!socialItems.length) {
+  const items = applyDateRange(socialItems, s => s.createdAt, socialDateState.from, socialDateState.to);
+  if (!items.length) {
     list.innerHTML = `<div class="empty"><p>Hozircha yozuv yo'q.</p></div>`;
     return;
   }
-  list.innerHTML = socialItems.map(s => `
+  list.innerHTML = items.map(s => `
     <div class="mat-card" data-id="${s.id}">
       <div class="mat-top">
         <div>
@@ -2665,13 +2715,15 @@ async function loadCalls(){
 const SENTIMENT_COLORS = { Positive: 'var(--s-buyurtma)', Neutral: 'var(--s-muzokara)', Negative: 'var(--danger)' };
 const SENTIMENT_LABELS = { Positive: "Ijobiy", Neutral: "Neytral", Negative: "Salbiy" };
 
+let callsDateState = wireDateFilter('calls', () => renderCalls());
 function renderCalls(){
   const list = document.getElementById('callsList');
-  if (!callLogs.length) {
+  const items = applyDateRange(callLogs, c => c.createdAt, callsDateState.from, callsDateState.to);
+  if (!items.length) {
     list.innerHTML = `<div class="empty"><h3>Hali tahlil qilingan qo'ng'iroq yo'q</h3><p>Yuqoridagi tugma orqali audio yuklang.</p></div>`;
     return;
   }
-  list.innerHTML = callLogs.map(c => `
+  list.innerHTML = items.map(c => `
     <div class="mat-card" data-id="${c.id}">
       <div class="mat-top">
         <div>
@@ -2770,13 +2822,15 @@ async function loadService(){
 
 const CONDITION_COLORS = { "A'lo": 'var(--s-buyurtma)', "Kichik muammo": 'var(--s-muzokara)', "Servis brigada kerak": 'var(--danger)' };
 
+let serviceDateState = wireDateFilter('service', () => renderService());
 function renderService(){
   const list = document.getElementById('serviceList');
-  if (!serviceItems.length) {
+  const items = applyDateRange(serviceItems, s => s.createdAt, serviceDateState.from, serviceDateState.to);
+  if (!items.length) {
     list.innerHTML = `<div class="empty"><h3>Hozircha servis mijozi yo'q</h3><p>"Sotildi" bosqichiga o'tgan lidlar shu yerga avtomatik qo'shiladi.</p></div>`;
     return;
   }
-  list.innerHTML = serviceItems.map(s => `
+  list.innerHTML = items.map(s => `
     <div class="mat-card" data-id="${s.id}">
       <div class="mat-top">
         <div>
@@ -2932,13 +2986,15 @@ async function loadPnl(){
   }
 }
 
+let financeDateState = wireDateFilter('finance', () => renderFinance());
 function renderFinance(){
   const list = document.getElementById('financeList');
-  if (!financeEntries.length) {
+  const items = applyDateRange(financeEntries, f => f.date, financeDateState.from, financeDateState.to);
+  if (!items.length) {
     list.innerHTML = `<div class="empty"><p>Hali yozuv yo'q.</p></div>`;
     return;
   }
-  list.innerHTML = financeEntries.map(f => `
+  list.innerHTML = items.map(f => `
     <div class="mat-card" data-id="${f.id}">
       <div class="mat-top">
         <div>
@@ -3036,13 +3092,15 @@ document.getElementById('debtsTabKreditor').addEventListener('click', () => {
 const DEBT_STATUS_LABELS = { pending: "Kutilmoqda", overdue: "Muddati o'tgan", paid: "To'landi" };
 const DEBT_STATUS_COLORS = { pending: 'var(--s-muzokara)', overdue: 'var(--danger)', paid: 'var(--s-buyurtma)' };
 
+let debtsDateState = wireDateFilter('debts', () => renderDebts());
 function renderDebts(){
   const list = document.getElementById('debtsList');
-  if (!debts.length) {
+  const items = applyDateRange(debts, d => d.createdAt, debtsDateState.from, debtsDateState.to);
+  if (!items.length) {
     list.innerHTML = `<div class="empty"><p>Hozircha qarz yozuvi yo'q.</p></div>`;
     return;
   }
-  list.innerHTML = debts.map(d => `
+  list.innerHTML = items.map(d => `
     <div class="mat-card" data-id="${d.id}">
       <div class="mat-top">
         <div>
@@ -3445,6 +3503,9 @@ function renderChips(){
   });
 }
 
+let dateFrom = '';
+let dateTo = '';
+
 function filteredLeads(){
   let arr = leads;
   if (activeFilter !== 'all') arr = arr.filter(l => l.status === activeFilter);
@@ -3452,6 +3513,8 @@ function filteredLeads(){
     const q = searchTerm.trim().toLowerCase();
     arr = arr.filter(l => l.name.toLowerCase().includes(q) || l.phone.includes(q));
   }
+  if (dateFrom) arr = arr.filter(l => (l.leadDate || '') >= dateFrom);
+  if (dateTo) arr = arr.filter(l => (l.leadDate || '') <= dateTo);
   return arr;
 }
 
@@ -3668,6 +3731,36 @@ function escapeHtml(str){
   return div.innerHTML;
 }
 
+// Generic date-range filter: dateGetter returns a 'YYYY-MM-DD' string (or a
+// timestamp, which is auto-converted) for each item; from/to are 'YYYY-MM-DD'.
+function applyDateRange(arr, dateGetter, from, to){
+  if (!from && !to) return arr;
+  return arr.filter(item => {
+    let d = dateGetter(item);
+    if (!d) return false;
+    if (typeof d === 'number') d = new Date(d).toISOString().slice(0, 10);
+    if (from && d < from) return false;
+    if (to && d > to) return false;
+    return true;
+  });
+}
+
+function wireDateFilter(prefix, onChange){
+  const fromEl = document.getElementById(prefix + 'DateFrom');
+  const toEl = document.getElementById(prefix + 'DateTo');
+  const clearEl = document.getElementById(prefix + 'DateClear');
+  if (!fromEl) return { from: '', to: '' };
+  const state = { from: '', to: '' };
+  fromEl.addEventListener('change', (e) => { state.from = e.target.value; onChange(); });
+  toEl.addEventListener('change', (e) => { state.to = e.target.value; onChange(); });
+  clearEl.addEventListener('click', () => {
+    state.from = ''; state.to = '';
+    fromEl.value = ''; toEl.value = '';
+    onChange();
+  });
+  return state;
+}
+
 function render(){
   document.getElementById('totalCount').textContent = leads.length + " ta";
   renderChips();
@@ -3809,6 +3902,21 @@ document.getElementById('leadForm').addEventListener('submit', async (e) => {
 
 document.getElementById('searchInput').addEventListener('input', (e) => {
   searchTerm = e.target.value;
+  renderList();
+});
+document.getElementById('leadsDateFrom').addEventListener('change', (e) => {
+  dateFrom = e.target.value;
+  renderList();
+});
+document.getElementById('leadsDateTo').addEventListener('change', (e) => {
+  dateTo = e.target.value;
+  renderList();
+});
+document.getElementById('leadsDateClear').addEventListener('click', () => {
+  dateFrom = '';
+  dateTo = '';
+  document.getElementById('leadsDateFrom').value = '';
+  document.getElementById('leadsDateTo').value = '';
   renderList();
 });
 
