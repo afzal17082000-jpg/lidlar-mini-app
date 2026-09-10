@@ -498,32 +498,37 @@ app.patch('/api/leads/:id', attachEmployee, requireRole('admin', 'sales', 'finan
           (updated.assignedSerialNumber ? `🔢 Seriya: ${escapeHtmlServer(updated.assignedSerialNumber)}` : '')
         );
 
-        // Auto-migrate to the After-Sales Service list.
+        // Sold kotels go straight into Production as a manufacturing order —
+        // NOT into After-Sales Service (that only happens once it's actually delivered).
         try {
-          const serviceCol = await getServiceCustomersCollection();
-          const existing = await serviceCol.findOne({ leadId: updated.id });
+          const prodCol = await getProductionItemsCollection();
+          const existing = await prodCol.findOne({ leadId: updated.id });
           if (!existing) {
-            await serviceCol.insertOne({
-              id: uid('svc'),
+            const category = PRODUCT_CATALOG[updated.productCategory] ? updated.productCategory : 'bunkerlik';
+            const size = updated.productSize || 150;
+            await prodCol.insertOne({
+              id: uid('pi'),
               leadId: updated.id,
+              category,
+              size: Number(size),
+              stageIndex: 0,
+              notes: `Mijoz: ${updated.name} (${updated.phone})` + (updated.product ? ` — ${updated.product}` : ''),
               customerName: updated.name,
-              phone: updated.phone,
-              region: updated.region || '',
-              district: updated.district || '',
-              product: updated.product || '',
-              serialNumber: updated.assignedSerialNumber || '',
-              condition: "A'lo",
-              followUpDate: '',
-              staffNotes: '',
-              customerFeedback: '',
-              assignedSalesName: updated.assignedSalesName || '',
-              assignedSalesTelegramId: updated.assignedSalesTelegramId || null,
+              customerPhone: updated.phone,
+              dueDate: '',
+              status: 'in_progress',
+              assignedWorker: employeeName,
               createdAt: Date.now(),
               updatedAt: Date.now(),
             });
+            notifyGroup(
+              `🏭 <b>Yangi buyurtma (zayavka) ishlab chiqarishga tushdi</b>\n👤 ${escapeHtmlServer(updated.name)} (${escapeHtmlServer(updated.phone)})\n` +
+              (updated.product ? `🫖 ${escapeHtmlServer(updated.product)}\n` : '') +
+              `Ombor/Ishlab chiqarish bo'limida ko'ring.`
+            );
           }
         } catch (e) {
-          console.error('Servis mijozini yaratishda xatolik:', e.message);
+          console.error("Ishlab chiqarish buyurtmasini yaratishda xatolik:", e.message);
         }
       }
 
