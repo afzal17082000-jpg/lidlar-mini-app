@@ -147,8 +147,8 @@ const STATUS_LABELS = {
   channel_subscription: "Kanalga a'zo qilish",
   negotiation: "Muzokarada",
   showroom: "Shourumga kelaman",
-  production: "Ishlab chiqarish",
   closed_won: "Sotildi",
+  delivered: "Yetkazildi",
   closed_lost: "Otkaz",
 };
 
@@ -538,6 +538,40 @@ app.patch('/api/leads/:id', attachEmployee, requireRole('admin', 'sales', 'finan
           { $set: { status: 'stock', dealId: null } }
         );
         await col.updateOne({ id: updated.id }, { $set: { assignedSerialId: null, assignedSerialNumber: '' } });
+      }
+
+      if (update.status === 'delivered') {
+        // Now that the kotel has actually reached the customer, migrate it
+        // into After-Sales Service for follow-up tracking.
+        try {
+          const serviceCol = await getServiceCustomersCollection();
+          const existing = await serviceCol.findOne({ leadId: updated.id });
+          if (!existing) {
+            await serviceCol.insertOne({
+              id: uid('svc'),
+              leadId: updated.id,
+              customerName: updated.name,
+              phone: updated.phone,
+              region: updated.region || '',
+              district: updated.district || '',
+              product: updated.product || '',
+              serialNumber: updated.assignedSerialNumber || '',
+              condition: "A'lo",
+              followUpDate: '',
+              staffNotes: '',
+              customerFeedback: '',
+              assignedSalesName: updated.assignedSalesName || '',
+              assignedSalesTelegramId: updated.assignedSalesTelegramId || null,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+            });
+            notifyGroup(
+              `✅ <b>Yetkazildi!</b>\n👤 ${escapeHtmlServer(updated.name)} (${escapeHtmlServer(updated.phone)})\nServis va aloqa bo'limiga qo'shildi.`
+            );
+          }
+        } catch (e) {
+          console.error('Servis mijozini yaratishda xatolik:', e.message);
+        }
       }
 
       if (update.status === 'production') {
