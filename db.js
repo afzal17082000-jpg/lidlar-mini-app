@@ -75,6 +75,11 @@ async function getServiceCustomersCollection() {
   return db.collection('serviceCustomers');
 }
 
+async function getTasksCollection() {
+  const db = await connect();
+  return db.collection('tasks');
+}
+
 module.exports = {
   getLeadsCollection,
   getEmployeesCollection,
@@ -88,4 +93,5 @@ module.exports = {
   getSocialSubscriptionsCollection,
   getCallLogsCollection,
   getServiceCustomersCollection,
+  getTasksCollection,
 };
