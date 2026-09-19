@@ -17,6 +17,7 @@ const {
   getSocialSubscriptionsCollection,
   getCallLogsCollection,
   getServiceCustomersCollection,
+  getTasksCollection,
 } = require('./db');
 
 const app = express();
@@ -307,6 +308,125 @@ app.get('/api/leads', attachEmployee, requireRole('admin', 'sales', 'finance'), 
   }
 });
 
+// Finds the sales rep with the fewest currently-active (not closed) leads,
+// for fair automatic distribution of new leads.
+async function pickRoundRobinSalesRep() {
+  const empCol = await getEmployeesCollection();
+  const salesReps = await empCol.find({ role: 'sales' }).toArray();
+  if (!salesReps.length) return null;
+
+  const leadsCol = await getLeadsCollection();
+  const counts = await Promise.all(salesReps.map(rep =>
+    leadsCol.countDocuments({
+      assignedSalesTelegramId: rep.telegramId,
+      status: { $nin: ['closed_won', 'closed_lost'] },
+    })
+  ));
+  let minIdx = 0;
+  for (let i = 1; i < counts.length; i++) {
+    if (counts[i] < counts[minIdx]) minIdx = i;
+  }
+  return salesReps[minIdx];
+}
+
+app.get('/api/leads/check-duplicate', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
+  const phone = (req.query.phone || '').trim();
+  if (!phone) return res.json({ duplicate: null });
+  try {
+    const col = await getLeadsCollection();
+    const existing = await col.findOne(
+      { phone },
+      { projection: { _id: 0, id: 1, name: 1, phone: 1, status: 1, assignedSalesName: 1, createdAt: 1 } }
+    );
+    res.json({ duplicate: existing || null });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Bazaga ulanishda xatolik' });
+  }
+});
+
+// Bulk-imports leads from an uploaded Excel file. Expected header row (any order):
+// Ism | Telefon | Manba | Viloyat | Tuman | Mahsulot | Izoh
+app.post('/api/leads/import', attachEmployee, requireRole('admin', 'sales'), upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Fayl topilmadi' });
+  const employeeName = getEmployeeName(req);
+  const telegramId = req.employee.telegramId;
+
+  try {
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(req.file.buffer);
+    const ws = wb.worksheets[0];
+    if (!ws) return res.status(400).json({ error: "Excel faylida sahifa topilmadi" });
+
+    const headerRow = ws.getRow(1).values.map(v => String(v || '').trim().toLowerCase());
+    const colIndex = (names) => {
+      for (const name of names) {
+        const idx = headerRow.findIndex(h => h === name);
+        if (idx > -1) return idx;
+      }
+      return -1;
+    };
+    const idxName = colIndex(['ism', 'ismi', 'name']);
+    const idxPhone = colIndex(['telefon', 'tel', 'phone']);
+    const idxSource = colIndex(['manba', 'source']);
+    const idxRegion = colIndex(['viloyat', 'region']);
+    const idxDistrict = colIndex(['tuman', 'district']);
+    const idxProduct = colIndex(['mahsulot', 'product']);
+    const idxComment = colIndex(['izoh', 'comment', 'notes']);
+
+    if (idxName === -1 || idxPhone === -1) {
+      return res.status(400).json({ error: "Fayl birinchi qatorida 'Ism' va 'Telefon' ustunlari bo'lishi shart" });
+    }
+
+    const col = await getLeadsCollection();
+    let created = 0, skipped = 0;
+    const errors = [];
+
+    for (let rowNum = 2; rowNum <= ws.rowCount; rowNum++) {
+      const row = ws.getRow(rowNum).values;
+      const name = String(row[idxName] || '').trim();
+      const phone = String(row[idxPhone] || '').trim();
+      if (!name || !phone) {
+        if (row.length > 1) errors.push(`Qator ${rowNum}: Ism yoki telefon bo'sh`);
+        continue;
+      }
+      const existing = await col.findOne({ phone });
+      if (existing) { skipped++; continue; }
+
+      const lead = {
+        id: uid(),
+        name, phone,
+        source: idxSource > -1 ? String(row[idxSource] || '').trim() : '',
+        address: '', region: idxRegion > -1 ? String(row[idxRegion] || '').trim() : '',
+        district: idxDistrict > -1 ? String(row[idxDistrict] || '').trim() : '',
+        product: idxProduct > -1 ? String(row[idxProduct] || '').trim() : '',
+        productCategory: '', productTier: '', productSize: '',
+        comment: idxComment > -1 ? String(row[idxComment] || '').trim() : '',
+        leadDate: new Date().toISOString().slice(0, 10),
+        consultationDate: '', consultationNotified: false,
+        status: 'lead', dealAmount: 0,
+        assignedSerialId: null, assignedSerialNumber: '',
+        createdAt: Date.now(), firstContactAt: null,
+        addedBy: employeeName, createdByTelegramId: telegramId,
+        assignedSalesName: employeeName, assignedSalesTelegramId: telegramId,
+        updatedBy: employeeName, updatedAt: Date.now(),
+        responsibleTelegramId: telegramId,
+        history: [{ ts: Date.now(), by: employeeName, action: 'created', detail: 'Excel import' }],
+      };
+      await col.insertOne(lead);
+      created++;
+    }
+
+    res.json({ created, skipped, errors: errors.slice(0, 20) });
+    if (created > 0) {
+      notifyGroup(`📥 <b>Excel'dan import</b>\n${escapeHtmlServer(employeeName)} ${created} ta yangi lid qo'shdi (${skipped} ta takroriy o'tkazib yuborildi)`);
+    }
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Faylni o'qishda xatolik: " + e.message });
+  }
+});
+
 app.post('/api/leads', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
   const user = getTelegramUser(req);
   if (user) {
@@ -341,10 +461,18 @@ app.post('/api/leads', attachEmployee, requireRole('admin', 'sales'), async (req
   const initialStatus = consultationDate ? 'consultation' : 'lead';
 
   // The person filling the form is always the creator, but the deal can be
-  // explicitly assigned to a different sales rep right away (e.g. an admin
-  // logging a lead on behalf of a specific salesperson).
-  const finalAssignedName = assignedSalesName || employeeName;
-  const finalAssignedTelegramId = assignedSalesTelegramId ? Number(assignedSalesTelegramId) : (user ? user.id : null);
+  // explicitly assigned to a different sales rep, distributed automatically
+  // (round-robin), or default to whoever's filling out the form.
+  let finalAssignedName = assignedSalesName || employeeName;
+  let finalAssignedTelegramId = assignedSalesTelegramId ? Number(assignedSalesTelegramId) : (user ? user.id : null);
+
+  if (assignedSalesTelegramId === 'auto') {
+    const picked = await pickRoundRobinSalesRep();
+    if (picked) {
+      finalAssignedName = picked.name;
+      finalAssignedTelegramId = picked.telegramId;
+    }
+  }
 
   const lead = {
     id: uid(),
@@ -367,6 +495,7 @@ app.post('/api/leads', attachEmployee, requireRole('admin', 'sales'), async (req
     assignedSerialId: null,
     assignedSerialNumber: '',
     createdAt: Date.now(),
+    firstContactAt: initialStatus !== 'lead' ? Date.now() : null,
     // Creator (who first captured the lead) vs. the sales rep currently responsible —
     // these can diverge after a reassignment.
     addedBy: employeeName,
@@ -386,8 +515,12 @@ app.post('/api/leads', attachEmployee, requireRole('admin', 'sales'), async (req
       `🆕 <b>Yangi lid</b>\n👤 ${escapeHtmlServer(lead.name)}\n📞 ${escapeHtmlServer(lead.phone)}\n` +
       (lead.source ? `🔗 Manba: ${escapeHtmlServer(lead.source)}\n` : '') +
       (lead.product ? `🫖 Mahsulot: ${escapeHtmlServer(lead.product)}\n` : '') +
+      `👤 Mas'ul: ${escapeHtmlServer(finalAssignedName)}\n` +
       `➕ Qo'shdi: ${escapeHtmlServer(employeeName)}`
     );
+    if (assignedSalesTelegramId === 'auto' && finalAssignedTelegramId) {
+      notifyUser(finalAssignedTelegramId, `📋 <b>Sizga yangi lid tushdi (avtomatik taqsimlash)</b>\n👤 ${escapeHtmlServer(lead.name)} (${escapeHtmlServer(lead.phone)})`);
+    }
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Saqlashda xatolik' });
@@ -458,6 +591,10 @@ app.patch('/api/leads/:id', attachEmployee, requireRole('admin', 'sales', 'finan
     }
 
     if (update.status && update.status !== before.status) {
+      // SLA: mark the moment the lead was first moved out of the raw 'lead' stage.
+      if (before.status === 'lead' && !before.firstContactAt) {
+        update.firstContactAt = Date.now();
+      }
       await col.updateOne(
         { id: req.params.id },
         { $push: { history: {
@@ -1244,7 +1381,16 @@ app.get('/api/analytics/overview', attachEmployee, requireRole('admin', 'finance
     const materials = await materialsCol.find({}).toArray();
     const stockAlerts = materials.filter(m => (m.qty || 0) <= (m.minStock || 0)).length;
 
-    res.json({ totalLeads, activeDeals, stockAlerts, winRate, closedWon, closedLost });
+    // SLA: average time (minutes) from lead creation to first contact.
+    const contacted = await leadsCol.find({ firstContactAt: { $ne: null } }, { projection: { createdAt: 1, firstContactAt: 1 } }).toArray();
+    const avgResponseMinutes = contacted.length
+      ? Math.round(contacted.reduce((sum, l) => sum + (l.firstContactAt - l.createdAt), 0) / contacted.length / 60000)
+      : null;
+    // Leads still untouched (status='lead') for more than 2 hours — need attention.
+    const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
+    const slowLeadsCount = await leadsCol.countDocuments({ status: 'lead', createdAt: { $lt: twoHoursAgo } });
+
+    res.json({ totalLeads, activeDeals, stockAlerts, winRate, closedWon, closedLost, avgResponseMinutes, slowLeadsCount });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Hisoblashda xatolik' });
@@ -1743,6 +1889,107 @@ app.delete('/api/service/:id', attachEmployee, requireRole('admin', 'service'), 
     res.status(500).json({ error: "O'chirishda xatolik" });
   }
 });
+
+// ================= Tasks (follow-up reminders per lead) =================
+
+app.get('/api/tasks', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
+  try {
+    const col = await getTasksCollection();
+    const filter = {};
+    if (req.query.leadId) filter.leadId = req.query.leadId;
+    if (req.employee.role === 'sales') filter.assignedTelegramId = req.employee.telegramId;
+    const tasks = await col.find(filter, { projection: { _id: 0 } }).sort({ dueDate: 1 }).toArray();
+    res.json(tasks);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Bazaga ulanishda xatolik' });
+  }
+});
+
+app.post('/api/tasks', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
+  const { leadId, title, dueDate, assignedTelegramId, assignedName } = req.body || {};
+  if (!title || !dueDate) return res.status(400).json({ error: "Nomi va sanasi majburiy" });
+  const employeeName = getEmployeeName(req);
+  const task = {
+    id: uid('task'),
+    leadId: leadId || null,
+    title: String(title).trim(),
+    dueDate,
+    status: 'pending',
+    notified: false,
+    assignedTelegramId: assignedTelegramId ? Number(assignedTelegramId) : req.employee.telegramId,
+    assignedName: assignedName || employeeName,
+    createdBy: employeeName,
+    createdAt: Date.now(),
+  };
+  try {
+    const col = await getTasksCollection();
+    await col.insertOne({ ...task });
+    res.json(task);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Saqlashda xatolik' });
+  }
+});
+
+app.patch('/api/tasks/:id', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
+  try {
+    const col = await getTasksCollection();
+    const update = {};
+    if (typeof req.body.title === 'string') update.title = req.body.title;
+    if (typeof req.body.dueDate === 'string') { update.dueDate = req.body.dueDate; update.notified = false; }
+    if (typeof req.body.status === 'string') update.status = req.body.status;
+
+    const updated = await col.findOneAndUpdate(
+      { id: req.params.id },
+      { $set: update },
+      { returnDocument: 'after', projection: { _id: 0 } }
+    );
+    if (!updated) return res.status(404).json({ error: 'Topilmadi' });
+    res.json(updated);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Yangilashda xatolik' });
+  }
+});
+
+app.delete('/api/tasks/:id', attachEmployee, requireRole('admin', 'sales'), async (req, res) => {
+  try {
+    const col = await getTasksCollection();
+    await col.deleteOne({ id: req.params.id });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "O'chirishda xatolik" });
+  }
+});
+
+// Every 15 minutes, ping the assigned salesperson about tasks due today (or overdue).
+async function checkTaskReminders() {
+  try {
+    const col = await getTasksCollection();
+    const today = new Date().toISOString().slice(0, 10);
+    const due = await col.find({
+      dueDate: { $lte: today },
+      status: 'pending',
+      notified: { $ne: true },
+    }).toArray();
+
+    for (const task of due) {
+      if (task.assignedTelegramId) {
+        await notifyUser(
+          task.assignedTelegramId,
+          `⏰ <b>Vazifa eslatmasi</b>\n${escapeHtmlServer(task.title)}\nMuddat: ${escapeHtmlServer(task.dueDate)}`
+        );
+      }
+      await col.updateOne({ id: task.id }, { $set: { notified: true } });
+    }
+  } catch (e) {
+    console.error('Vazifa eslatmalarini tekshirishda xatolik:', e.message);
+  }
+}
+setInterval(checkTaskReminders, 15 * 60 * 1000);
+checkTaskReminders();
 
 // ================= Excel reports =================
 
